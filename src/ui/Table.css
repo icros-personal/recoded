@@ -1,0 +1,45 @@
+.data-table table {
+  border-collapse: collapse;
+}
+
+.data-table th {
+  text-align: left;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+}
+
+.data-table td {
+  padding: 0.15rem 0.25rem;
+}
+
+.data-table input {
+  width: 6rem;
+  box-sizing: border-box;
+  padding: 0.25rem 0.4rem;
+  font: inherit;
+}
+
+.data-table input.invalid {
+  outline: 2px solid #dc2626;
+}
+
+/* Rows marked by Table.highlight(). */
+.data-table tr.highlight td {
+  background: #fef3c7;
+}
+ 
+.data-table tr.highlight input {
+  border-color: #f59e0b;
+}
+
+/* The always-present "add a row" row. */
+.data-table tr.draft input {
+  border-style: dashed;
+}
+
+.data-table button.remove {
+  padding: 0 0.5rem;
+  font: inherit;
+  line-height: 1.6;
+  cursor: pointer;
+}

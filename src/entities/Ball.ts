@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { FIELD_LENGTH, FIELD_WIDTH } from './Floor';
+import { Robot } from './Robot';
 
 type Vec3 = { x: number; y: number; z: number };
 
@@ -29,7 +30,7 @@ export class Ball {
   }
 
   inBounds(): boolean {
-    return this.position.y > -0.1 && this.position.x < FIELD_LENGTH / 2 && this.position.x > -FIELD_LENGTH / 2 && this.position.z < FIELD_WIDTH / 2 && this.position.z > -FIELD_WIDTH / 2;
+    return this.position.y > Robot.ROBOT_HEIGHT / 2 && this.position.x < FIELD_LENGTH / 2 && this.position.x > -FIELD_LENGTH / 2 && this.position.z < FIELD_WIDTH / 2 && this.position.z > -FIELD_WIDTH / 2;
   }
 
   /** Park the ball (visual only) at a position. */

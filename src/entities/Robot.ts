@@ -68,4 +68,8 @@ export class Robot {
     this.group.updateWorldMatrix(true, false);
     return target.set(1, 0, 0).transformDirection(this.group.matrixWorld);
   }
+
+  rpmToLaunchSpeed(rpm: number): number {
+    return 0.002 * rpm;
+  }
 }

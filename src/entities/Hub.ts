@@ -18,10 +18,12 @@ export class Hub {
   static readonly OPENING_RADIUS = 24.7 / 39.3701 / 2;
   /** Slightly smaller than the visual so scoring is "conservative". */
   static readonly SCORING_RADIUS = 24 / 39.3701 / 2;
+  static readonly HUB_X = -4.1995;
 
   readonly group = new THREE.Group();
   private readonly top: HubTop;
   private readonly funnel: HubFunnel;
+
 
   constructor(x = 0, z = 0) {
     const { WIDTH, HEIGHT, DEPTH, OPENING_RADIUS } = Hub;

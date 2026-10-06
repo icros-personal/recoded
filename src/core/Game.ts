@@ -24,6 +24,7 @@ export class Game {
   world!: RAPIER.World;
 
   private readonly renderer = new THREE.WebGLRenderer({ antialias: true });
+  private readonly storage: unknown[] = [];
   private level: Level | null = null;
   private last = performance.now();
 
@@ -77,6 +78,14 @@ export class Game {
     this.world.step();
   }
 
+  getStorage(index: number) {
+    return this.storage[index];
+  }
+
+  setStorage(index: number, value: any) {
+    this.storage[index] = value;
+  }
+
   private aspect(): number {
     const { clientWidth: w, clientHeight: h } = this.ui.viewport;
     return w && h ? w / h : 1;
@@ -86,6 +95,7 @@ export class Game {
     this.level?.dispose?.();
     this.level = null;
     this.ui.onAction(null);
+    this.ui.clearLevelContainer();
 
     this.scene.remove(this.stage);
     disposeObject(this.stage);

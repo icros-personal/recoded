@@ -10,6 +10,7 @@ export interface ControlSpec {
 
 /** Text content a level provides for the page chrome. */
 export interface LevelInfo {
+  index: number;
   subtitle: string;
   /** Shown in the status line whenever the level is idle/ready. */
   instructions: string;
@@ -71,7 +72,7 @@ export class GameUI {
 
   /** Swap the header text, overlay label and control inputs for a new level. */
   showLevel(info: LevelInfo, controls: ControlSpec[]) {
-    this.subtitleEl.textContent = info.subtitle;
+    this.subtitleEl.textContent = `Level ${info.index}: ${info.subtitle}`;
     this.hintEl.textContent = info.hint ?? DEFAULT_HINT;
     this.targetLabelEl.textContent = info.targetLabel ?? '';
     this.targetLabelEl.style.display = info.targetLabel ? '' : 'none';
@@ -115,6 +116,10 @@ export class GameUI {
     const min = input.min === '' ? -Infinity : Number(input.min);
     const max = input.max === '' ? Infinity : Number(input.max);
     return Math.min(max, Math.max(min, value));
+  }
+
+  getControlsContainer(): HTMLElement {
+    return this.controlsEl;
   }
 
   getLevelContainer(): HTMLElement {
