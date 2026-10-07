@@ -59,6 +59,7 @@ export class Level3 implements Level {
   private flywheelRpm = 0;
 
   private phase: Phase = "ready";
+  private successfulShotsThisBurst = 0;
   private currentDistance = 0;
   private successfulShots = 0;
   private totalShots = 0;
@@ -170,19 +171,18 @@ export class Level3 implements Level {
         }
         ctx.strokeStyle = "blue";
         ctx.stroke();
-        ctx.strokeStyle = '#aaa';
+        ctx.strokeStyle = "#aaa";
         ctx.beginPath();
-        ctx.moveTo(0, 0),
-        ctx.lineTo(0, this.canvas.height);
+        (ctx.moveTo(0, 0), ctx.lineTo(0, this.canvas.height));
         ctx.stroke();
         for (let i = 0; i <= MAX_RPM; i += 1000) {
           ctx.beginPath();
-          ctx.moveTo(0, i / MAX_RPM * this.canvas.height),
-          ctx.lineTo(this.canvas.width, i / MAX_RPM * this.canvas.height);
+          (ctx.moveTo(0, (i / MAX_RPM) * this.canvas.height),
+            ctx.lineTo(this.canvas.width, (i / MAX_RPM) * this.canvas.height));
           ctx.stroke();
         }
         ctx.fillText(MAX_RPM.toString(), 0, 12);
-        ctx.fillText('0', 0, this.canvas.height);
+        ctx.fillText("0", 0, this.canvas.height);
       }
     }
   }
@@ -214,8 +214,17 @@ export class Level3 implements Level {
 
       const p = shot.ball.position;
       if (this.hub.isScoringCrossing(shot.previousY, p)) {
+        this.successfulShotsThisBurst++;
         this.recordSuccessfulShot();
         this.finishShot(i);
+        if (this.successfulShotsThisBurst > 5) {
+          this.phase = 'scored';
+        }
+        if (this.successfulShots > 30) {
+          this.phase = 'done';
+          this.game.ui.setStatus("Well done!");
+          this.game.ui.setAction("NEXT");
+        }
         continue;
       }
 
@@ -248,18 +257,36 @@ export class Level3 implements Level {
 
     this.logRpm = true;
     this.phase = "firing";
+    this.successfulShotsThisBurst = 0;
 
     this.game.ui.setStatus("Firing...");
     this.game.ui.setAction("RESET");
   }
 
+  private getShotAngle(): number {
+    // Return fixed angle for distance 3 or beyond
+    if (this.currentDistance >= 3) {
+      return SHOT_ANGLE_DEG;
+    }
+
+    // Clamp lower bound to 80° for distance <= 1
+    if (this.currentDistance <= 1) {
+      return 80;
+    }
+
+    // Linear interpolation factor t between distance 1 and 3
+    const t = (this.currentDistance - 1) / (3 - 1);
+
+    // Lerp from 80 at t=0 (dist=1) to SHOT_ANGLE_DEG at t=1 (dist=3)
+    return 80 + t * (SHOT_ANGLE_DEG - 80);
+  }
+
   private fireBall() {
     this.totalShots++;
     const start = this.robot.getMuzzlePosition();
-
     const speed = this.robot.rpmToLaunchSpeed(this.flywheelRpm);
     const fwd = this.robot.getForward();
-    const angle = THREE.MathUtils.degToRad(SHOT_ANGLE_DEG);
+    const angle = THREE.MathUtils.degToRad(this.getShotAngle());
     const horizontal = Math.cos(angle) * speed;
     const ball = this.balls[this.ballsFired];
     ball.place(this.robot.getMuzzlePosition());
