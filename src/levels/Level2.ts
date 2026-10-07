@@ -8,6 +8,8 @@ import { Robot } from "../entities/Robot";
 import type { Level } from "./Level";
 import { CameraSpec } from "../core/camera";
 import { levels } from ".";
+import { DistanceLine } from "../entities/DistanceLine";
+import { ScoreOverlay } from "../ui/ScoreOverlay";
 
 const INSTRUCTIONS =
   "Get the ball through the hexagonal opening on top of the Hub.";
@@ -53,21 +55,23 @@ export class Level2 implements Level {
   private totalShots = 0;
 
   private shotTable: [number, number][] = [];
-  private distanceLabel: HTMLDivElement = document.createElement('div');
-  private shotLabel: HTMLDivElement = document.createElement('div');
+  private distanceLine!: DistanceLine;
+  private scoreOverlay!: ScoreOverlay;
 
   setup(game: Game) {
     this.game = game;
-    this.game.ui.getLevelContainer().appendChild(this.distanceLabel);
-    this.shotLabel.innerText = `Shots on target: ${this.successfulShots} / ${this.totalShots}`;
-    this.game.ui.getLevelContainer().appendChild(this.shotLabel);
+
+    this.distanceLine = new DistanceLine(this.game.renderer.domElement.parentElement!);
+
+    this.scoreOverlay = new ScoreOverlay(this.game.renderer.domElement.parentElement!);
+    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
 
     const floor = new Floor();
     floor.addColliders(game.world);
 
     this.hub = new Hub(Hub.HUB_X);
     this.robot = new Robot(this.getNewRobotPosition());
-    this.setCurrentDistance();
+    this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
     this.hub.addColliders(game.world);
     this.ball = new Ball();
 
@@ -76,13 +80,9 @@ export class Level2 implements Level {
       this.robot.group,
       this.hub.group,
       this.ball.mesh,
+      this.distanceLine.group,
     );
     this.resetShot();
-  }
-
-  private setCurrentDistance() {
-    this.currentDistance = this.getDistanceToHub();
-    this.distanceLabel.innerText = `Distance from hub: ${Math.round(this.currentDistance * 100) / 100} m`;
   }
 
   private getNewRobotPosition() {
@@ -107,16 +107,28 @@ export class Level2 implements Level {
   private recordSuccessfulShot() {
     this.shotTable.push([this.currentDistance, this.game.ui.getNumber('rpm')]);
     this.successfulShots++;
-    this.shotLabel.innerText = `Shots on target: ${this.successfulShots} / ${this.totalShots}`;
+    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
   }
 
   private moveToNewDistance() {
     const robotPosition = this.getNewRobotPosition();
     this.robot.setPosition(robotPosition, 0);
-    this.setCurrentDistance();
+    this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
+
+    this.distanceLine.update(
+      this.robot.getMuzzlePosition(),
+      this.hub.group.position,
+      this.game.camera,
+    );
   }
 
   update(dt: number) {
+    this.distanceLine.update(
+      this.robot.getMuzzlePosition(),
+      this.hub.group.position,
+      this.game.camera,
+    );
+
     if (this.phase !== "flying") return;
 
     this.game.stepPhysics(dt);
@@ -175,18 +187,17 @@ export class Level2 implements Level {
     this.game.ui.setAction("RESET");
   }
 
-  private getDistanceToHub() {
-    const muzzle = this.robot.getMuzzlePosition();
-    const hub = this.hub.group.position;
-    return Math.hypot(hub.x - muzzle.x, hub.z - muzzle.z);
-  }
-
   private resetShot() {
-    this.shotLabel.innerText = `Shots on target: ${this.successfulShots} / ${this.totalShots}`;
+    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
     this.phase = "ready";
     this.ball.remove(this.game.world);
     this.ball.place(this.robot.getMuzzlePosition());
     this.game.ui.setStatus(INSTRUCTIONS);
     this.game.ui.setAction("FIRE!");
+  }
+
+  dispose() {
+    this.scoreOverlay.dispose();
+    this.distanceLine.dispose();
   }
 }

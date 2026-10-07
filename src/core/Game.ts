@@ -23,7 +23,7 @@ export class Game {
   /** Per-level physics world. Recreated on every loadLevel. */
   world!: RAPIER.World;
 
-  private readonly renderer = new THREE.WebGLRenderer({ antialias: true });
+  readonly renderer = new THREE.WebGLRenderer({ antialias: true });
   private readonly storage: unknown[] = [];
   private level: Level | null = null;
   private last = performance.now();

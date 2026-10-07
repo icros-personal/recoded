@@ -83,8 +83,8 @@ export class Table {
     const tr = document.createElement('tr');
     const row: Row = { key, dirty: false, tr };
 
-    const keyInput = numberInput(key, 'Key');
-    const valueInput = numberInput(value, 'Value');
+    const keyInput = numberInput(key, 'Key', 1);
+    const valueInput = numberInput(value, 'Value', 100);
 
     keyInput.addEventListener('change', () => {
       const next = keyInput.valueAsNumber;
@@ -162,8 +162,8 @@ export class Table {
 
   private buildDraftRow(tr: HTMLTableRowElement, headers: [string, string]) {
     tr.className = 'draft';
-    const keyInput = numberInput(undefined, headers[0]);
-    const valueInput = numberInput(undefined, headers[1]);
+    const keyInput = numberInput(undefined, headers[0], 1);
+    const valueInput = numberInput(undefined, headers[1], 100);
     keyInput.placeholder = headers[0];
     valueInput.placeholder = headers[1];
 
@@ -204,10 +204,10 @@ export class Table {
   }
 }
 
-function numberInput(value: number | undefined, label: string): HTMLInputElement {
+function numberInput(value: number | undefined, label: string, step: number): HTMLInputElement {
   const input = document.createElement('input');
   input.type = 'number';
-  input.step = 'any';
+  input.step = `${step}`;
   input.setAttribute('aria-label', label);
   if (value !== undefined) input.value = String(value);
   return input;

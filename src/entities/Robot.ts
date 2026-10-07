@@ -64,6 +64,11 @@ export class Robot {
     return this.group.localToWorld(target);
   }
 
+  getDistanceToHub(hub: THREE.Vector3) {
+    const muzzle = this.getMuzzlePosition();
+    return Math.hypot(hub.x - muzzle.x, hub.z - muzzle.z);
+  }
+
   getForward(target = new THREE.Vector3()): THREE.Vector3 {
     this.group.updateWorldMatrix(true, false);
     return target.set(1, 0, 0).transformDirection(this.group.matrixWorld);

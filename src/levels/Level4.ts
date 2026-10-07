@@ -1,7 +1,6 @@
 import * as THREE from "three";
 import type { Game } from "../core/Game";
 import type { ControlSpec, LevelInfo } from "../core/ui";
-import { Ball } from "../entities/Ball";
 import { FIELD_LENGTH, FIELD_WIDTH, Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
 import { Robot } from "../entities/Robot";
@@ -9,12 +8,17 @@ import type { Level } from "./Level";
 import { CameraSpec } from "../core/camera";
 import { Table } from "../ui/Table";
 import { levels } from ".";
+import { RpmGraph } from "../ui/RpmGraph";
+import { BurstShooter } from "../core/BurstShooter";
+import { DistanceLine } from "../entities/DistanceLine";
+import { ScoreOverlay } from "../ui/ScoreOverlay";
 
 const INSTRUCTIONS =
   "It's a lot of work coming up with the right value for each distance. Can we just add a few values to a table and let the robot figure out the in-between steps?";
 const SHOT_ANGLE_DEG = 60;
+const MAX_RPM = 5000;
 
-type Phase = "ready" | "flying" | "scored" | "done";
+type Phase = "ready" | "firing" | "waiting" | "scored" | "done";
 
 export class Level4 implements Level {
   readonly levelRequirement = 10;
@@ -29,14 +33,14 @@ export class Level4 implements Level {
 
   readonly rotationAngle = -Math.atan2(
     FIELD_WIDTH / 2,
-    FIELD_LENGTH / 2 + Hub.HUB_X,
+    FIELD_LENGTH / 2 + Hub.HUB_X
   );
   readonly rotationMatrix = new THREE.Matrix4()
     .makeTranslation(Hub.HUB_X, 0, 0)
     .multiply(
       new THREE.Matrix4()
         .makeRotationY(this.rotationAngle)
-        .multiply(new THREE.Matrix4().makeTranslation(-Hub.HUB_X, 0, 0)),
+        .multiply(new THREE.Matrix4().makeTranslation(-Hub.HUB_X, 0, 0))
     );
   readonly camera: CameraSpec = {
     type: "perspective",
@@ -52,24 +56,28 @@ export class Level4 implements Level {
   private game!: Game;
   private robot!: Robot;
   private hub!: Hub;
-  private ball!: Ball;
+  private shooter!: BurstShooter;
+  private rpmGraph!: RpmGraph;
 
   private phase: Phase = "ready";
-  private previousBallY = 0;
   private currentDistance = 0;
   private successfulShots = 0;
   private totalShots = 0;
 
   private table: Table | null = null;
-  private distanceLabel: HTMLDivElement = document.createElement("div");
-  private shotLabel: HTMLDivElement = document.createElement("div");
+
+  private distanceLine!: DistanceLine;
+  private scoreOverlay!: ScoreOverlay;
 
   setup(game: Game) {
     this.game = game;
-    this.game.ui.getLevelContainer().appendChild(this.distanceLabel);
-    this.shotLabel.innerText = `Shots on target: ${this.successfulShots} / ${this.totalShots}`;
-    this.game.ui.getLevelContainer().appendChild(this.shotLabel);
 
+    this.distanceLine = new DistanceLine(this.game.renderer.domElement.parentElement!);
+
+    this.scoreOverlay = new ScoreOverlay(this.game.renderer.domElement.parentElement!);
+    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
+
+    // Setup Table UI
     const level2Table = this.game.getStorage(2);
     if (level2Table && Array.isArray(level2Table)) {
       const map = new Map<number, number>();
@@ -87,12 +95,16 @@ export class Level4 implements Level {
     } else {
       this.table = new Table(["Distance", "RPM"]);
     }
-    this.game.ui
-      .getControlsContainer()
-      .insertBefore(
-        this.table.getRoot(),
-        this.game.ui.getControlsContainer().firstElementChild,
-      );
+    
+    const controlsContainer = this.game.ui.getControlsContainer();
+    controlsContainer.insertBefore(
+      this.table.getRoot(),
+      controlsContainer.firstElementChild
+    );
+
+    // Setup RPM Graph Canvas
+    this.rpmGraph = new RpmGraph(800, 300, MAX_RPM);
+    controlsContainer.appendChild(this.rpmGraph.canvas);
 
     const floor = new Floor();
     floor.addColliders(game.world);
@@ -100,22 +112,13 @@ export class Level4 implements Level {
     this.hub = new Hub(Hub.HUB_X);
     this.robot = new Robot(...this.getNewRobotPosition(4.5));
     this.robot.group.rotation.y = this.rotationAngle;
-    this.setCurrentDistance();
+    this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
+
     this.hub.addColliders(game.world);
-    this.ball = new Ball();
+    this.shooter = new BurstShooter(game, this.robot, this.hub);
 
-    game.stage.add(
-      floor.mesh,
-      this.robot.group,
-      this.hub.group,
-      this.ball.mesh,
-    );
+    game.stage.add(floor.mesh, this.robot.group, this.hub.group, this.distanceLine.group);
     this.resetShot();
-  }
-
-  private setCurrentDistance() {
-    this.currentDistance = this.getDistanceToHub();
-    this.distanceLabel.innerText = `Distance from hub: ${Math.round(this.currentDistance * 100) / 100} m`;
   }
 
   private getNewRobotPosition(hint?: number): [number, number] {
@@ -126,7 +129,7 @@ export class Level4 implements Level {
       ? Hub.HUB_X - hint
       : Math.random() * (max - min) + min;
     const position = new THREE.Vector3(distance, 0, 0).applyMatrix4(
-      this.rotationMatrix,
+      this.rotationMatrix
     );
     return [position.x, position.z];
   }
@@ -134,7 +137,7 @@ export class Level4 implements Level {
   onAction() {
     if (this.phase === "ready") {
       this.fire();
-    } else if (this.phase === "flying") {
+    } else if (this.phase === "firing" || this.phase === "waiting") {
       this.resetShot();
     } else if (this.phase === "scored") {
       this.moveToNewDistance();
@@ -144,71 +147,78 @@ export class Level4 implements Level {
     }
   }
 
-  private recordSuccessfulShot() {
-    this.successfulShots++;
-    this.shotLabel.innerText = `Shots on target: ${this.successfulShots} / ${this.totalShots}`;
-  }
-
   private moveToNewDistance() {
     this.robot.setPosition(...this.getNewRobotPosition());
-    this.setCurrentDistance();
+    this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
+    this.distanceLine.update(
+      this.robot.getMuzzlePosition(),
+      this.hub.group.position,
+      this.game.camera,
+    );
   }
 
   update(dt: number) {
-    if (this.phase !== "flying") return;
+    const targetRpm = this.getInterpolatedRPM();
 
-    this.game.stepPhysics(dt);
-    this.ball.syncMesh();
+    this.distanceLine.update(
+      this.robot.getMuzzlePosition(),
+      this.hub.group.position,
+      this.game.camera,
+    );
 
-    const p = this.ball.position;
-    if (this.hub.isScoringCrossing(this.previousBallY, p)) {
-      this.recordSuccessfulShot();
-      if (this.successfulShots < this.levelRequirement) {
-        this.phase = "scored";
-        this.game.ui.setStatus(
-          `✓ Nice shot! You found the opening. Can you get ${this.levelRequirement - this.successfulShots} more shots on target?`,
-          "success",
-        );
-        this.game.ui.setAction("NEXT");
-      } else {
-        this.phase = "done";
-        this.game.ui.setStatus(
-          "✓ Nice shot! You're getting the hang of this.",
-          "success",
-        );
-        this.game.ui.setAction("DONE");
+    this.shooter.update(
+      dt,
+      targetRpm,
+      () => this.getShotAngle(),
+      (event) => {
+        this.totalShots++;
+        if (event === "scored") {
+          this.successfulShots++;
+          if (this.successfulShots >= this.levelRequirement) {
+            this.phase = "done";
+            this.game.ui.setStatus(
+              "✓ Nice shot! You're getting the hang of this.",
+              "success"
+            );
+            this.game.ui.setAction("DONE");
+          } else {
+            this.phase = "scored";
+            this.game.ui.setStatus(
+              `✓ Nice shot! Can you get ${this.levelRequirement - this.successfulShots} more shots on target?`,
+              "success"
+            );
+            this.game.ui.setAction("NEXT");
+          }
+        }
+        this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
       }
-      return;
-    }
-    this.previousBallY = p.y;
+    );
 
-    if (!this.ball.inBounds()) {
-      this.resetShot();
-      this.game.ui.setStatus("Missed. Try a different shot power.", "miss");
+    this.rpmGraph.update(this.shooter.flywheelRpm);
+
+    if (this.phase === "firing" && !this.shooter.isBusy) {
+      this.phase = "waiting";
+      this.rpmGraph.stop();
+      this.game.ui.setStatus("Try a different set of RPM table values.", "miss");
+      this.game.ui.setAction("RESET");
     }
   }
 
   private getInterpolatedRPM(): number {
-    // Assuming this.table.values() returns Map<number, number>
     const entries = Array.from(this.table!.values().entries());
 
-    if (entries.length === 0) {
-      return 0;
-    }
+    if (entries.length === 0) return 0;
 
-    // Clamp to lower bound if below or equal to the first distance
     if (this.currentDistance <= entries[0][0]) {
       this.table?.highlight(0);
       return entries[0][1];
     }
 
-    // Clamp to upper bound if above or equal to the last distance
     if (this.currentDistance >= entries[entries.length - 1][0]) {
       this.table?.highlight(entries.length - 1);
       return entries[entries.length - 1][1];
     }
 
-    // Find the interval [i - 1, i] containing currentDistance
     let i = 1;
     while (i < entries.length && entries[i][0] < this.currentDistance) {
       i++;
@@ -218,47 +228,40 @@ export class Level4 implements Level {
     const [d0, rpm0] = entries[i - 1];
     const [d1, rpm1] = entries[i];
 
-    // Standard linear interpolation formula: y = y0 + (x - x0) * (y1 - y0) / (x1 - x0)
     const t = (this.currentDistance - d0) / (d1 - d0);
     return rpm0 + t * (rpm1 - rpm0);
   }
 
   private fire() {
-    const rpm = this.getInterpolatedRPM();
-    if (!Number.isFinite(rpm)) return;
+    const targetRpm = this.getInterpolatedRPM();
+    if (!Number.isFinite(targetRpm)) return;
 
-    this.totalShots++;
-    const start = this.robot.getMuzzlePosition();
+    this.rpmGraph.start();
+    this.shooter.startBurst();
+    this.phase = "firing";
 
-    // Level 3: assume shooter instantly reaches target RPM.
-    const speed = this.robot.rpmToLaunchSpeed(rpm);
-    const fwd = this.robot.getForward();
-    const angle = THREE.MathUtils.degToRad(SHOT_ANGLE_DEG);
-    const horizontal = Math.cos(angle) * speed;
-    this.ball.launch(this.game.world, start, {
-      x: fwd.x * horizontal,
-      y: Math.sin(angle) * speed,
-      z: fwd.z * horizontal,
-    });
-
-    this.phase = "flying";
-    this.previousBallY = start.y;
-    this.game.ui.setStatus("Watch the shot...");
+    this.game.ui.setStatus("Watch the burst...");
     this.game.ui.setAction("RESET");
   }
 
-  private getDistanceToHub() {
-    const muzzle = this.robot.getMuzzlePosition();
-    const hub = this.hub.group.position;
-    return Math.hypot(hub.x - muzzle.x, hub.z - muzzle.z);
+  private getShotAngle(): number {
+    if (this.currentDistance >= 3) return SHOT_ANGLE_DEG;
+    if (this.currentDistance <= 1) return 80;
+    const t = (this.currentDistance - 1) / (3 - 1);
+    return 80 + t * (SHOT_ANGLE_DEG - 80);
   }
 
   private resetShot() {
-    this.shotLabel.innerText = `Shots on target: ${this.successfulShots} / ${this.totalShots}`;
+    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
     this.phase = "ready";
-    this.ball.remove(this.game.world);
-    this.ball.place(this.robot.getMuzzlePosition());
+    this.shooter.reset();
+    this.rpmGraph.reset();
     this.game.ui.setStatus(INSTRUCTIONS);
     this.game.ui.setAction("FIRE!");
+  }
+
+  dispose() {
+    this.scoreOverlay.dispose();
+    this.distanceLine.dispose();
   }
 }
