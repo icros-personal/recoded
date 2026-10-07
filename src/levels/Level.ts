@@ -1,4 +1,4 @@
-import { CameraSpec } from '../core/camera';
+import type { CameraSpec } from '../core/Camera';
 import type { Game } from '../core/Game';
 import type { ControlSpec, LevelInfo } from '../core/ui';
 

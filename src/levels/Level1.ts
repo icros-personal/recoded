@@ -2,11 +2,11 @@ import * as THREE from "three";
 import type { Game } from "../core/Game";
 import type { ControlSpec, LevelInfo } from "../core/ui";
 import { Ball } from "../entities/Ball";
-import { FIELD_LENGTH, FIELD_WIDTH, Floor } from "../entities/Floor";
+import { Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
 import { Robot } from "../entities/Robot";
 import type { Level } from "./Level";
-import { CameraSpec } from "../core/camera";
+import type { CameraSpec } from "../core/Camera";
 import { levels } from ".";
 
 const INSTRUCTIONS =
@@ -73,7 +73,10 @@ export class Level1 implements Level {
     if (this.phase === "ready") {
       this.fire();
     } else if (this.phase === "done") {
-      this.game.loadLevel(levels[this.info.index]());
+      const level = levels[this.info.index]?.();
+      if (level) {
+        this.game.loadLevel(level);
+      }
     } else {
       this.resetShot();
     }

@@ -28,7 +28,7 @@ export class BurstShooter {
     private game: Game,
     private robot: Robot,
     private hub: Hub,
-    config: BurstShooterConfig = {}
+    config: BurstShooterConfig = {},
   ) {
     this.config = {
       ballsPerBurst: 10,
@@ -66,7 +66,12 @@ export class BurstShooter {
     return this.isFiring || this.shots.length > 0;
   }
 
-  update(dt: number, targetRpm: number, getShotAngle: () => number, onShotEvent?: ShotCallback) {
+  update(
+    dt: number,
+    targetRpm: number,
+    getShotAngle: () => number,
+    onShotEvent?: ShotCallback,
+  ) {
     // 1. Update Flywheel Physics
     const delta = targetRpm - this.flywheelRpm;
     const maxChange = this.config.acceleration * dt;
@@ -95,7 +100,7 @@ export class BurstShooter {
     this.game.stepPhysics(dt);
 
     for (let i = this.shots.length - 1; i >= 0; i--) {
-      const shot = this.shots[i];
+      const shot = this.shots[i]!;
       shot.ball.syncMesh();
 
       const p = shot.ball.position;
@@ -121,7 +126,7 @@ export class BurstShooter {
     const angle = THREE.MathUtils.degToRad(shotAngleDeg);
     const horizontal = Math.cos(angle) * speed;
 
-    const ball = this.balls[this.ballsFired];
+    const ball = this.balls[this.ballsFired]!;
     ball.place(start);
     this.ballsFired++;
 
@@ -132,11 +137,17 @@ export class BurstShooter {
       z: fwd.z * horizontal,
     });
 
-    this.flywheelRpm = Math.max(0, this.flywheelRpm - this.config.rpmDropPerBall);
+    this.flywheelRpm = Math.max(
+      0,
+      this.flywheelRpm - this.config.rpmDropPerBall,
+    );
   }
 
   private finishShot(index: number) {
     const shot = this.shots[index];
+    if (!shot) {
+      return;
+    }
     shot.ball.remove(this.game.world);
     this.shots.splice(index, 1);
   }

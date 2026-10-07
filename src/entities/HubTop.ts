@@ -33,7 +33,7 @@ export class HubTop {
   /** Hub-local corner points (2 × polygon size per piece). */
   private readonly parts: THREE.Vector3[][] = [];
 
-  constructor({ halfSize: w, holeRadius: r, baseY, thickness }: HubDeckOptions) {
+  constructor({ halfSize: w, holeRadius: r, baseY, thickness }: HubTopOptions) {
     const a = (r * Math.sqrt(3)) / 2; // hexagon apothem: its flats are at z = ±a
 
     const polygons: Point2[][] = [

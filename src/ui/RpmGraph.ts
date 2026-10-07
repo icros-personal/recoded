@@ -49,14 +49,14 @@ export class RpmGraph {
     ctx.beginPath();
     ctx.moveTo(
       width,
-      ((this.maxRpm - this.rpmLog[this.rpmLog.length - 1]) / this.maxRpm) * height
+      ((this.maxRpm - this.rpmLog[this.rpmLog.length - 1]!) / this.maxRpm) * height
     );
 
     for (let i = 1; i < this.rpmLog.length; i++) {
       const logIndex = this.rpmLog.length - 1 - i;
       ctx.lineTo(
         width - i * (width / this.maxLogLength),
-        ((this.maxRpm - this.rpmLog[logIndex]) / this.maxRpm) * height
+        ((this.maxRpm - this.rpmLog[logIndex]!) / this.maxRpm) * height
       );
     }
     ctx.strokeStyle = "blue";

@@ -5,7 +5,7 @@ import { FIELD_LENGTH, FIELD_WIDTH, Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
 import { Robot } from "../entities/Robot";
 import type { Level } from "./Level";
-import { CameraSpec } from "../core/camera";
+import type { CameraSpec } from "../core/Camera";
 import { Table } from "../ui/Table";
 import { levels } from ".";
 import { RpmGraph } from "../ui/RpmGraph";
@@ -143,7 +143,10 @@ export class Level4 implements Level {
       this.moveToNewDistance();
       this.resetShot();
     } else {
-      this.game.loadLevel(levels[this.info.index]());
+      const level = levels[this.info.index]?.();
+      if (level) {
+        this.game.loadLevel(level);
+      }
     }
   }
 
@@ -209,24 +212,24 @@ export class Level4 implements Level {
 
     if (entries.length === 0) return 0;
 
-    if (this.currentDistance <= entries[0][0]) {
+    if (this.currentDistance <= entries[0]![0]) {
       this.table?.highlight(0);
-      return entries[0][1];
+      return entries[0]![1];
     }
 
-    if (this.currentDistance >= entries[entries.length - 1][0]) {
+    if (this.currentDistance >= entries[entries.length - 1]![0]) {
       this.table?.highlight(entries.length - 1);
-      return entries[entries.length - 1][1];
+      return entries[entries.length - 1]![1];
     }
 
     let i = 1;
-    while (i < entries.length && entries[i][0] < this.currentDistance) {
+    while (i < entries.length && entries[i]![0] < this.currentDistance) {
       i++;
     }
 
     this.table?.highlight(i - 1, i);
-    const [d0, rpm0] = entries[i - 1];
-    const [d1, rpm1] = entries[i];
+    const [d0, rpm0] = entries[i - 1]!;
+    const [d1, rpm1] = entries[i]!;
 
     const t = (this.currentDistance - d0) / (d1 - d0);
     return rpm0 + t * (rpm1 - rpm0);

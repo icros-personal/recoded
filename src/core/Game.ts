@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
-import { createCamera, DEFAULT_CAMERA, fitCamera, type CameraSpec, type GameCamera } from './camera';
+import { createCamera, DEFAULT_CAMERA, fitCamera, type CameraSpec, type GameCamera } from './Camera';
 import type { GameUI } from './ui';
 import type { Level } from '../levels/Level';
 

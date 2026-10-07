@@ -6,7 +6,7 @@ import { FIELD_LENGTH, Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
 import { Robot } from "../entities/Robot";
 import type { Level } from "./Level";
-import { CameraSpec } from "../core/camera";
+import type { CameraSpec } from "../core/Camera";
 import { levels } from ".";
 import { DistanceLine } from "../entities/DistanceLine";
 import { ScoreOverlay } from "../ui/ScoreOverlay";
@@ -100,7 +100,10 @@ export class Level2 implements Level {
       this.moveToNewDistance();
       this.resetShot();
     } else {
-      this.game.loadLevel(levels[this.info.index]());
+      const level = levels[this.info.index]?.();
+      if (level) {
+        this.game.loadLevel(level);
+      }
     }
   }
 
