@@ -124,18 +124,45 @@ export class GameUI {
       label.htmlFor = spec.id;
       label.textContent = spec.label;
 
-      const input = document.createElement('input');
-      input.id = spec.id;
-      input.type = 'number';
-      input.value = String(spec.value);
-      if (spec.min !== undefined) input.min = String(spec.min);
-      if (spec.max !== undefined) input.max = String(spec.max);
-      if (spec.step !== undefined) input.step = String(spec.step);
+      // Create the range slider for mobile/easy dragging
+      const rangeInput = document.createElement('input');
+      rangeInput.type = 'range';
+      if (spec.min !== undefined) rangeInput.min = String(spec.min);
+      if (spec.max !== undefined) rangeInput.max = String(spec.max);
+      if (spec.step !== undefined) rangeInput.step = String(spec.step);
+      rangeInput.value = String(spec.value);
+      rangeInput.className = 'control-slider';
 
-      wrapper.append(label, input);
+      // Create the precise number input
+      const numberInput = document.createElement('input');
+      numberInput.id = spec.id;
+      numberInput.type = 'number';
+      if (spec.min !== undefined) numberInput.min = String(spec.min);
+      if (spec.max !== undefined) numberInput.max = String(spec.max);
+      if (spec.step !== undefined) numberInput.step = String(spec.step);
+      numberInput.value = String(spec.value);
+      numberInput.className = 'control-number';
+
+      // Sync slider -> number input live
+      rangeInput.addEventListener('input', () => {
+        numberInput.value = rangeInput.value;
+      });
+
+      // Sync number input -> slider live
+      numberInput.addEventListener('input', () => {
+        const val = Number(numberInput.value);
+        if (Number.isFinite(val)) {
+          rangeInput.value = numberInput.value;
+        }
+      });
+
+      wrapper.append(label, rangeInput, numberInput);
+      
       // Keep the inputs to the left of the action button.
       this.controlsEl.insertBefore(wrapper, this.actionButton);
-      this.inputs.set(spec.id, input);
+      
+      // Register the number input so getNumber(id) still works transparently
+      this.inputs.set(spec.id, numberInput);
     }
   }
 
