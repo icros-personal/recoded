@@ -19,6 +19,6 @@ export class Floor {
 
   addColliders(world: RAPIER.World) {
     const body = world.createRigidBody(RAPIER.RigidBodyDesc.fixed().setTranslation(0, -FLOOR_THICKNESS, 0));
-    world.createCollider(RAPIER.ColliderDesc.cuboid(FIELD_LENGTH / 2, FLOOR_THICKNESS / 2, FIELD_WIDTH / 2), body);
+    world.createCollider(RAPIER.ColliderDesc.cuboid(FIELD_LENGTH / 2, FLOOR_THICKNESS / 2, FIELD_WIDTH / 2).setCollisionGroups(0x0001ffff), body);
   }
 }

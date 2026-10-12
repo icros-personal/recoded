@@ -1,31 +1,27 @@
 import * as THREE from "three";
-import type { Game } from "../core/Game";
-import type { ControlSpec, LevelInfo } from "../core/ui";
+import { BaseLevel } from "./BaseLevel";
 import { Ball } from "../entities/Ball";
-import { FIELD_LENGTH, Floor } from "../entities/Floor";
-import { Hub } from "../entities/Hub";
-import { Robot } from "../entities/Robot";
-import type { Level } from "./Level";
-import type { CameraSpec } from "../core/Camera";
 import { levels } from ".";
-import { DistanceLine } from "../entities/DistanceLine";
-import { ScoreOverlay } from "../ui/ScoreOverlay";
+import { Robot } from "../entities/Robot";
 
-const INSTRUCTIONS =
-  "Get the ball through the hexagonal opening on top of the Hub.";
+const INSTRUCTIONS = "Score from 3 different distances.";
 const SHOT_ANGLE_DEG = 60;
 
 type Phase = "ready" | "flying" | "scored" | "done";
 
-export class Level2 implements Level {
-  readonly info: LevelInfo = {
+export class Level2 extends BaseLevel {
+  readonly info = {
     index: 2,
     subtitle: "Scoring from distance",
     instructions: INSTRUCTIONS,
     targetLabel: "",
+    modal: {
+      title: "Pit Strategy: Calibration",
+      body: "In a real FRC match, drivers don't guess shot power. We need to map distance to shooter RPM so the robot knows how to adjust automatically. Let's log a few data points across different positions!",
+    },
   };
 
-  readonly controls: ControlSpec[] = [
+  readonly controls = [
     {
       id: "rpm",
       label: "Shooter RPM",
@@ -36,67 +32,41 @@ export class Level2 implements Level {
     },
   ];
 
-  readonly camera: CameraSpec = {
-    type: "perspective",
-    position: [-6, 2.5, 6],
-    target: [-6, 1.25, 0],
+  readonly camera = {
+    type: "perspective" as const,
+    position: [-6, 2.5, 6] as [number, number, number],
+    target: [-6, 1.25, 0] as [number, number, number],
     fov: 40,
   };
 
-  private game!: Game;
-  private robot!: Robot;
-  private hub!: Hub;
-  private ball!: Ball;
+  readonly shotRequirements = 3;
 
+  private ball!: Ball;
   private phase: Phase = "ready";
   private previousBallY = 0;
-  private currentDistance = 0;
-  private successfulShots = 0;
-  private totalShots = 0;
-
   private shotTable: [number, number][] = [];
-  private distanceLine!: DistanceLine;
-  private scoreOverlay!: ScoreOverlay;
 
-  setup(game: Game) {
-    this.game = game;
-
-    this.distanceLine = new DistanceLine(this.game.renderer.domElement.parentElement!);
-
-    this.scoreOverlay = new ScoreOverlay(this.game.renderer.domElement.parentElement!);
-    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
-
-    const floor = new Floor();
-    floor.addColliders(game.world);
-
-    this.hub = new Hub(Hub.HUB_X);
-    this.robot = new Robot(this.getNewRobotPosition());
+  protected override initEntities() {
+    const dist = this.getNextDistance();
+    const robotX = this.hub.group.position.x - dist;
+    this.robot = new Robot(robotX);
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
-    this.hub.addColliders(game.world);
-    this.ball = new Ball();
 
-    game.stage.add(
-      floor.mesh,
-      this.robot.group,
-      this.hub.group,
-      this.ball.mesh,
-      this.distanceLine.group,
-    );
-    this.resetShot();
+    this.ball = new Ball();
+    this.game.stage.add(this.ball.mesh);
   }
 
-  private getNewRobotPosition() {
-    const min = -FIELD_LENGTH / 2 + Robot.ROBOT_WIDTH / 2;
-    const max = -5 - Hub.WIDTH / 2 - Robot.ROBOT_WIDTH / 2;
-    return Math.random() * (max - min) + min;
+  protected override getBaseDistances() {
+    // 3.77 is off the field, unfortunately.
+    return [2.23, 2.73, 3.23, 3.63];
   }
 
   onAction() {
-    if (this.phase === 'ready') {
+    if (this.phase === "ready") {
       this.fire();
-    } else if (this.phase === 'flying') {
+    } else if (this.phase === "flying") {
       this.resetShot();
-    } else if (this.phase === 'scored') {
+    } else if (this.phase === "scored") {
       this.moveToNewDistance();
       this.resetShot();
     } else {
@@ -107,63 +77,52 @@ export class Level2 implements Level {
     }
   }
 
-  private recordSuccessfulShot() {
-    this.shotTable.push([this.currentDistance, this.game.ui.getNumber('rpm')]);
-    this.successfulShots++;
-    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
-  }
-
   private moveToNewDistance() {
-    const robotPosition = this.getNewRobotPosition();
-    this.robot.setPosition(robotPosition, 0);
+    const dist = this.getNextDistance();
+    this.robot.setPosition(this.hub.group.position.x - dist, 0);
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
-
-    this.distanceLine.update(
-      this.robot.getMuzzlePosition(),
-      this.hub.group.position,
-      this.game.camera,
-    );
+    this.updateDistanceLine();
   }
 
   update(dt: number) {
-    this.distanceLine.update(
-      this.robot.getMuzzlePosition(),
-      this.hub.group.position,
-      this.game.camera,
-    );
+    this.updateDistanceLine();
 
     if (this.phase !== "flying") return;
 
+    this.flightTime += dt;
     this.game.stepPhysics(dt);
     this.ball.syncMesh();
 
     const p = this.ball.position;
+    if (this.flightTime > this.MAX_FLIGHT_TIME || !this.ball.inBounds()) {
+      this.resetShot();
+      this.game.ui.setStatus("Missed! Try a different RPM.", "miss");
+      return;
+    }
+
     if (this.hub.isScoringCrossing(this.previousBallY, p)) {
+      this.shotTable.push([
+        this.currentDistance,
+        this.game.ui.getNumber("rpm"),
+      ]);
       this.recordSuccessfulShot();
-      if (this.successfulShots < 5) {
+
+      if (this.successfulShots < this.shotRequirements) {
         this.phase = "scored";
         this.game.ui.setStatus(
-          `✓ Nice shot! You found the opening. Can you get ${5 - this.successfulShots} more shots on target?`,
+          `✓ Nice shot! Get ${this.shotRequirements - this.successfulShots} more to pass the level.`,
           "success",
         );
-        this.game.ui.setAction("NEXT");
+        this.game.ui.setAction("NEXT DISTANCE");
       } else {
         this.phase = "done";
         this.game.setStorage(2, this.shotTable);
-        this.game.ui.setStatus(
-          "✓ Nice shot! You're getting the hang of this.",
-          "success",
-        );
-        this.game.ui.setAction("DONE");
+        this.game.ui.setStatus("✓ Shot speeds recorded!", "success");
+        this.game.ui.setAction("NEXT LEVEL");
       }
       return;
     }
     this.previousBallY = p.y;
-
-    if (!this.ball.inBounds()) {
-      this.resetShot();
-      this.game.ui.setStatus("Missed. Try a different shot power.", "miss");
-    }
   }
 
   private fire() {
@@ -172,12 +131,11 @@ export class Level2 implements Level {
 
     this.totalShots++;
     const start = this.robot.getMuzzlePosition();
-
-    // Level 2: assume shooter instantly reaches target RPM.
     const speed = this.robot.rpmToLaunchSpeed(rpm);
     const fwd = this.robot.getForward();
     const angle = THREE.MathUtils.degToRad(SHOT_ANGLE_DEG);
     const horizontal = Math.cos(angle) * speed;
+
     this.ball.launch(this.game.world, start, {
       x: fwd.x * horizontal,
       y: Math.sin(angle) * speed,
@@ -190,17 +148,12 @@ export class Level2 implements Level {
     this.game.ui.setAction("RESET");
   }
 
-  private resetShot() {
-    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
+  protected override resetShot() {
+    super.resetShot();
     this.phase = "ready";
     this.ball.remove(this.game.world);
     this.ball.place(this.robot.getMuzzlePosition());
     this.game.ui.setStatus(INSTRUCTIONS);
     this.game.ui.setAction("FIRE!");
-  }
-
-  dispose() {
-    this.scoreOverlay.dispose();
-    this.distanceLine.dispose();
   }
 }

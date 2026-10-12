@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import type { Game } from "../core/Game";
+import type { Game } from "./Game";
 import { Ball } from "../entities/Ball";
 import { Hub } from "../entities/Hub";
 import { Robot } from "../entities/Robot";
@@ -10,16 +10,17 @@ export interface BurstShooterConfig {
   rpmDropPerBall?: number;
   acceleration?: number;
   maxRpm?: number;
+  maxAge?: number;
 }
 
 export type ShotCallback = (event: "scored" | "missed") => void;
 
 export class BurstShooter {
   public flywheelRpm = 0;
-  private readonly config: Required<BurstShooterConfig>;
+  private readonly config: Omit<Required<BurstShooterConfig>, 'maxAge'> & { maxAge?: number };
 
   private balls: Ball[] = [];
-  private shots: { previousY: number; ball: Ball }[] = [];
+  private shots: { previousY: number; ball: Ball; age: number }[] = [];
   private ballsFired = 0;
   private timeToNextBall = 0;
   private isFiring = false;
@@ -101,6 +102,7 @@ export class BurstShooter {
 
     for (let i = this.shots.length - 1; i >= 0; i--) {
       const shot = this.shots[i]!;
+      shot.age += dt;
       shot.ball.syncMesh();
 
       const p = shot.ball.position;
@@ -112,7 +114,10 @@ export class BurstShooter {
 
       shot.previousY = p.y;
 
-      if (!shot.ball.inBounds()) {
+      if (
+        (this.config.maxAge && shot.age > this.config.maxAge) ||
+        !shot.ball.inBounds()
+      ) {
         onShotEvent?.("missed");
         this.finishShot(i);
       }
@@ -130,7 +135,7 @@ export class BurstShooter {
     ball.place(start);
     this.ballsFired++;
 
-    this.shots.push({ ball, previousY: start.y });
+    this.shots.push({ ball, previousY: start.y, age: 0 });
     ball.launch(this.game.world, start, {
       x: fwd.x * horizontal,
       y: Math.sin(angle) * speed,

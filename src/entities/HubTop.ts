@@ -79,7 +79,7 @@ export class HubTop {
         flat[i * 3 + 1] = p.y + origin.y;
         flat[i * 3 + 2] = p.z + origin.z;
       });
-      const desc = RAPIER.ColliderDesc.convexHull(flat);
+      const desc = RAPIER.ColliderDesc.convexHull(flat)?.setCollisionGroups(0x0001ffff);
       if (desc) world.createCollider(desc); // no parent body = fixed
     }
   }

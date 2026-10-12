@@ -38,7 +38,7 @@ export class Ball {
     this.mesh.position.set(pos.x, pos.y, pos.z);
   }
 
-  launch(world: RAPIER.World, pos: Vec3, velocity: Vec3) {
+  launch(world: RAPIER.World, pos: Vec3, velocity: Vec3, collideWithBalls = true) {
     this.remove(world);
 
     this.body = world.createRigidBody(
@@ -47,7 +47,11 @@ export class Ball {
         .setLinearDamping(0.05)
         .setAngularDamping(0.1)
     );
-    world.createCollider(RAPIER.ColliderDesc.ball(Ball.RADIUS).setRestitution(0.35), this.body);
+    const colliderDesc = RAPIER.ColliderDesc.ball(Ball.RADIUS).setRestitution(0.35);
+    if (!collideWithBalls) {
+      colliderDesc.setCollisionGroups(0x00020001);
+    }
+    world.createCollider(colliderDesc, this.body);
     this.body.setLinvel(velocity, true);
     this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
   }

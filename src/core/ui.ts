@@ -17,6 +17,10 @@ export interface LevelInfo {
   /** Overlay label in the viewport. Omit to hide it. */
   targetLabel?: string;
   hint?: string;
+  modal?: {
+    title: string;
+    body: string;
+  };
 }
 
 export type StatusKind = 'info' | 'success' | 'miss';
@@ -38,6 +42,7 @@ export class GameUI {
   private readonly controlsEl: HTMLElement;
   private readonly actionButton: HTMLButtonElement;
   private readonly statusEl: HTMLDivElement;
+  private modalEl: HTMLDivElement | null = null;
 
   private readonly inputs = new Map<string, HTMLInputElement>();
   private actionHandler: (() => void) | null = null;
@@ -50,8 +55,7 @@ export class GameUI {
           <div class="hint"></div>
         </header>
         <div id="viewport" class="viewport" aria-label="Robot simulation"><div class="target-label"></div></div>
-        <section class="level">
-        </section>
+        <section class="level"></section>
         <section class="controls">
           <button id="fire" type="button"></button>
           <div id="status" class="status" aria-live="polite"></div>
@@ -78,6 +82,34 @@ export class GameUI {
     this.targetLabelEl.style.display = info.targetLabel ? '' : 'none';
     this.setControls(controls);
     this.setStatus(info.instructions);
+
+    if (info.modal) {
+      this.showModal(info.modal.title, info.modal.body);
+    }
+  }
+
+  showModal(title: string, bodyText: string) {
+    if (this.modalEl) {
+      this.modalEl.remove();
+    }
+
+    this.modalEl = document.createElement('div');
+    this.modalEl.className = 'modal-backdrop';
+    this.modalEl.innerHTML = `
+    <div class="modal-dialog">
+      <h2>${title}</h2>
+      <p>${bodyText}</p>
+      <button type="button" class="modal-ok">OK, Let's Go</button>
+    </div>
+    `;
+
+    const okButton = this.modalEl.querySelector('.modal-ok') as HTMLButtonElement;
+    okButton.addEventListener('click', () => {
+      this.modalEl?.remove();
+      this.modalEl = null;
+    })
+
+    this.viewport.append(this.modalEl);
   }
 
   setControls(controls: ControlSpec[]) {

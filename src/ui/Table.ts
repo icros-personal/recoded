@@ -197,10 +197,42 @@ export class Table {
     tr.insertCell(); // aligns with the remove-button column
   }
 
+  getInterpolatedValue(key: number): number {
+    const entries = Array.from(this.values().entries());
+
+    if (entries.length === 0) return 1000;
+
+    if (key <= entries[0]![0]) {
+      this.highlight(0);
+      return entries[0]![1];
+    }
+
+    if (key >= entries[entries.length - 1]![0]) {
+      this.highlight(entries.length - 1);
+      return entries[entries.length - 1]![1];
+    }
+
+    let i = 1;
+    while (i < entries.length && entries[i]![0] < key) {
+      i++;
+    }
+
+    this.highlight(i - 1, i);
+    const [d0, rpm0] = entries[i - 1]!;
+    const [d1, rpm1] = entries[i]!;
+
+    const t = (key - d0) / (d1 - d0);
+    return rpm0 + t * (rpm1 - rpm0);
+  }
+
   private emit() {
     if (this.handlers.length === 0) return;
     const values = this.values();
     for (const handler of this.handlers) handler(values);
+  }
+
+  dispose() {
+    this.getRoot().remove();
   }
 }
 

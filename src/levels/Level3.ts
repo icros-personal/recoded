@@ -1,29 +1,30 @@
 import type { Game } from "../core/Game";
 import type { ControlSpec, LevelInfo } from "../core/ui";
-import { FIELD_LENGTH, Floor } from "../entities/Floor";
-import { Hub } from "../entities/Hub";
-import { Robot } from "../entities/Robot";
-import type { Level } from "./Level";
-import type { CameraSpec } from "../core/Camera";
-import { levels } from ".";
+import { BaseLevel } from "./BaseLevel";
 import { RpmGraph } from "../ui/RpmGraph";
-import { BurstShooter } from "../core/BurstShooter";
-import { DistanceLine } from "../entities/DistanceLine";
-import { ScoreOverlay } from "../ui/ScoreOverlay";
+import { FixedBurstShooter } from "../core/FixedBurstShooter";
+import { levels } from ".";
+import type { CameraSpec } from "../core/Camera";
+import { Robot } from "../entities/Robot";
 
+const REQUIRED_HITS_PER_BURST = 6;
+const REQUIRED_SUCCESSFUL_BURSTS = 3;
 const INSTRUCTIONS =
-  "Unfortunately, our shooter can't spin up instantly, and each ball slows it down. Can you still score them all?";
-const SHOT_ANGLE_DEG = 60;
+  `Test your lookup table! Score at least ${REQUIRED_HITS_PER_BURST} out of 10 balls in a single burst.`;
 const MAX_RPM = 5000;
 
 type Phase = "ready" | "firing" | "waiting" | "scored" | "done";
 
-export class Level3 implements Level {
+export class Level3 extends BaseLevel {
   readonly info: LevelInfo = {
     index: 3,
     subtitle: "Flywheels are tricky",
     instructions: INSTRUCTIONS,
     targetLabel: "",
+    modal: {
+      title: "Pit Strategy: Motor Saturation & Recovery",
+      body: "Flywheels store kinetic energy, but shooting a game piece draws current and slows the motor down. If you fire a rapid burst without letting the flywheel recover, subsequent balls will fall short! Let's test your table data under physical stress.",
+    },
   };
 
   readonly controls: ControlSpec[] = [
@@ -44,50 +45,48 @@ export class Level3 implements Level {
     fov: 40,
   };
 
-  private game!: Game;
-  private robot!: Robot;
-  private hub!: Hub;
-  private shooter!: BurstShooter;
+  private shooter!: FixedBurstShooter;
   private rpmGraph!: RpmGraph;
 
   private phase: Phase = "ready";
   private successfulShotsThisBurst = 0;
-  private currentDistance = 0;
-  private successfulShots = 0;
-  private totalShots = 0;
+  private successfulBursts = 0;
+  private shotTableMap = new Map<number, number>();
 
-  private distanceLine!: DistanceLine;
-  private scoreOverlay!: ScoreOverlay;
+  protected override initEntities() {
+    const level2Table = this.game.getStorage(2);
+    if (level2Table && Array.isArray(level2Table)) {
+      for (const pair of level2Table) {
+        if (
+          Array.isArray(pair) &&
+          pair.length === 2 &&
+          Number.isFinite(pair[0]) && Number.isFinite(pair[1])
+        ) {
+          this.shotTableMap.set(Math.round(pair[0] * 100) / 100, pair[1]);
+        }
+      }
+    }
 
-  setup(game: Game) {
-    this.game = game;
-
-    this.distanceLine = new DistanceLine(this.game.renderer.domElement.parentElement!);
-
-    this.scoreOverlay = new ScoreOverlay(this.game.renderer.domElement.parentElement!);
-    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
-
-    this.rpmGraph = new RpmGraph(800, 300, MAX_RPM);
-    this.game.ui.getControlsContainer().appendChild(this.rpmGraph.canvas);
-
-    const floor = new Floor();
-    floor.addColliders(game.world);
-
-    this.hub = new Hub(Hub.HUB_X);
-    this.robot = new Robot(this.getNewRobotPosition());
+    const dist = this.getNextDistance();
+    const robotX = this.hub.group.position.x - dist;
+    this.robot = new Robot(robotX);
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
 
-    this.hub.addColliders(game.world);
-    this.shooter = new BurstShooter(game, this.robot, this.hub);
+    const suggestedRpm = this.getStoredRpmForDistance(dist);
+    const input = this.game.ui
+      .getControlsContainer()
+      .querySelector<HTMLInputElement>("#rpm");
+    if (input && suggestedRpm) {
+      input.value = String(suggestedRpm);
+    }
 
-    game.stage.add(floor.mesh, this.robot.group, this.hub.group, this.distanceLine.group);
-    this.resetShot();
+    this.shooter = new FixedBurstShooter(this.game, this.robot, this.hub, { maxAge: 3.5});
+    this.rpmGraph = new RpmGraph(800, 300, MAX_RPM);
+    this.game.ui.getControlsContainer().appendChild(this.rpmGraph.canvas);
   }
 
-  private getNewRobotPosition() {
-    const min = -FIELD_LENGTH / 2 + Robot.ROBOT_WIDTH / 2;
-    const max = -5 - Hub.WIDTH / 2 - Robot.ROBOT_WIDTH / 2;
-    return Math.random() * (max - min) + min;
+  protected override getBaseDistances() {
+    return [2.23, 2.73, 3.23, 3.63];
   }
 
   onAction() {
@@ -107,20 +106,41 @@ export class Level3 implements Level {
   }
 
   private moveToNewDistance() {
-    const robotPosition = this.getNewRobotPosition();
-    this.robot.setPosition(robotPosition, 0);
+    const dist = this.getNextDistance();
+    this.robot.setPosition(this.hub.group.position.x - dist, 0);
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
 
-    this.distanceLine.update(
-      this.robot.getMuzzlePosition(),
-      this.hub.group.position,
-      this.game.camera,
-    );
+    const suggestedRpm = this.getStoredRpmForDistance(dist);
+    if (suggestedRpm) {
+      const input = this.game.ui
+        .getControlsContainer()
+        .querySelector<HTMLInputElement>("#rpm");
+      if (input) {
+        input.value = String(suggestedRpm);
+      }
+    }
+
+    this.updateDistanceLine();
+  }
+
+  private getStoredRpmForDistance(dist: number): number | null {
+    let closestRpm: number | null = null;
+    let minDiff = Infinity;
+    for (const [d, rpm] of this.shotTableMap.entries()) {
+      const diff = Math.abs(d - dist);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestRpm = rpm;
+      }
+    }
+    return minDiff < 0.5 ? closestRpm : null;
   }
 
   update(dt: number) {
+    this.updateDistanceLine();
+
     const targetRpm = this.game.ui.getNumber("rpm");
-    
+
     this.shooter.update(
       dt,
       targetRpm,
@@ -129,55 +149,70 @@ export class Level3 implements Level {
         this.totalShots++;
         if (event === "scored") {
           this.successfulShotsThisBurst++;
-          this.successfulShots++;
-          if (this.successfulShotsThisBurst >= 5) this.phase = "scored";
-          if (this.successfulShots > 30) {
-            this.phase = "done";
-            this.game.ui.setStatus("Well done!");
-            this.game.ui.setAction("NEXT");
-          }
+          this.recordSuccessfulShot();
         }
-
         this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
-      }
-    );
-
-    this.distanceLine.update(
-      this.robot.getMuzzlePosition(),
-      this.hub.group.position,
-      this.game.camera,
+      },
     );
 
     this.rpmGraph.update(this.shooter.flywheelRpm);
 
     if (this.phase === "firing" && !this.shooter.isBusy) {
-      this.phase = "waiting";
       this.rpmGraph.stop();
-      this.game.ui.setStatus("Try again?");
-      this.game.ui.setAction("RESET");
+      if (this.successfulShotsThisBurst >= REQUIRED_HITS_PER_BURST) {
+        this.successfulBursts++;
+        this.shotTableMap.set(
+          this.currentDistance,
+          this.game.ui.getNumber("rpm"),
+        );
+        if (this.successfulBursts >= REQUIRED_SUCCESSFUL_BURSTS) {
+          this.phase = 'done';
+          this.game.setStorage(this.info.index, Array.from(this.shotTableMap.entries()));
+          this.game.ui.setStatus(`✓ Level Complete! Passed ${REQUIRED_SUCCESSFUL_BURSTS} successful bursts.`,
+            "success",
+          );
+          this.game.ui.setAction("NEXT LEVEL");
+        } else {
+          this.phase = "scored";
+          this.game.ui.setStatus(
+            `✓ Great burst (${this.successfulShotsThisBurst}/10)! Successful bursts: ${this.successfulBursts}/${REQUIRED_SUCCESSFUL_BURSTS}. Click to move to a new distance.`,
+            "success",
+          );
+          this.game.ui.setAction("NEXT DISTANCE");
+        }
+      } else {
+        this.phase = "waiting";
+        this.game.ui.setStatus(
+          `Only scored ${this.successfulShotsThisBurst}/10. Need at least ${REQUIRED_HITS_PER_BURST}. Adjust your RPM and retry!`,
+          "miss",
+        );
+        this.game.ui.setAction("RESET");
+      }
     }
   }
 
   private startBurst() {
-    if (!Number.isFinite(this.game.ui.getNumber("rpm"))) return;
+    if (!Number.isFinite(this.game.ui.getNumber("rpm"))) {
+      return;
+    }
 
     this.rpmGraph.start();
     this.shooter.startBurst();
     this.phase = "firing";
     this.successfulShotsThisBurst = 0;
 
-    this.game.ui.setStatus("Firing...");
+    this.game.ui.setStatus("Firing burst...");
     this.game.ui.setAction("RESET");
   }
 
   private getShotAngle(): number {
-    if (this.currentDistance >= 3) return SHOT_ANGLE_DEG;
+    if (this.currentDistance >= 3) return 60;
     if (this.currentDistance <= 1) return 80;
     const t = (this.currentDistance - 1) / (3 - 1);
-    return 80 + t * (SHOT_ANGLE_DEG - 80);
+    return 80 + t * (60 - 80);
   }
 
-  private resetShot() {
+  protected resetShot() {
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
     this.phase = "ready";
     this.shooter.reset();
@@ -185,8 +220,8 @@ export class Level3 implements Level {
     this.game.ui.setAction("FIRE!");
   }
 
-  dispose() {
-    this.scoreOverlay.dispose();
-    this.distanceLine.dispose();
+  override dispose() {
+    super.dispose();
+    this.rpmGraph.dispose();
   }
 }

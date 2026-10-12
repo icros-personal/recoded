@@ -79,4 +79,8 @@ export class RpmGraph {
     ctx.fillText(this.maxRpm.toString(), 0, 12);
     ctx.fillText("0", 0, height);
   }
+
+  dispose() {
+    this.canvas.remove();
+  }
 }

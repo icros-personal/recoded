@@ -98,7 +98,7 @@ export class Hub {
       world.createCollider(
         RAPIER.ColliderDesc.cuboid(wall.sx, h, wall.sz),
         body,
-      );
+      ).setCollisionGroups(0x0001ffff);
     }
 
     this.top.addColliders(world, this.group.position);

@@ -10,6 +10,8 @@ import type { Level } from '../levels/Level';
  * the next level loads, the stage and world are thrown away and rebuilt.
  */
 export class Game {
+  private accumulator = 0;
+  private readonly PHYSICS_TIMESTEP = 1/60;
   readonly scene = new THREE.Scene();
   readonly ui: GameUI;
 
@@ -72,12 +74,6 @@ export class Game {
     requestAnimationFrame((now) => this.tick(now));
   }
 
-  /** Advance physics. Levels call this from update() when they want the sim running. */
-  stepPhysics(dt: number) {
-    this.world.timestep = dt;
-    this.world.step();
-  }
-
   getStorage(index: number) {
     return this.storage[index];
   }
@@ -117,6 +113,17 @@ export class Game {
 
     this.level?.update?.(dt);
     this.renderer.render(this.scene, this.camera);
+  }
+
+  stepPhysics(dt: number) {
+    // Accumulate frame time and step in fixed chunks
+    this.accumulator += dt;
+    this.world.timestep = this.PHYSICS_TIMESTEP;
+
+    while (this.accumulator >= this.PHYSICS_TIMESTEP) {
+      this.world.step();
+      this.accumulator -= this.PHYSICS_TIMESTEP;
+    }
   }
 }
 
