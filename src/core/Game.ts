@@ -42,7 +42,7 @@ export class Game {
 
     this.scene.add(new THREE.HemisphereLight(0xffffff, 0x64748b, 2.0));
     const sun = new THREE.DirectionalLight(0xffffff, 2.0);
-    sun.position.set(-4, 8, 8);
+    sun.position.set(-8, 8, 8);
     sun.castShadow = true;
     this.scene.add(sun);
 

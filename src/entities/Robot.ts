@@ -28,6 +28,7 @@ export class Robot {
       new THREE.MeshStandardMaterial({ color: 0x475569, transparent: true, opacity: 0.8, roughness: 0.75 })
     );
     body.position.y = Robot.ROBOT_HEIGHT / 2 - 0.0508;
+    body.castShadow = true;
     this.group.add(body);
 
     this.shooter = new THREE.Mesh(
