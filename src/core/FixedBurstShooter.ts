@@ -150,10 +150,11 @@ export class FixedBurstShooter {
     this.ballsFired++;
 
     this.shots.push({ ball, previousY: start.y, age: 0 });
+    const robotVel = this.robot.getVelocity();
     ball.launch(this.game.world, start, {
-      x: fwd.x * horizontal,
+      x: fwd.x * horizontal + robotVel.x,
       y: Math.sin(angle) * speed,
-      z: fwd.z * horizontal,
+      z: fwd.z * horizontal + robotVel.z,
     });
 
     this.flywheelRpm = Math.max(

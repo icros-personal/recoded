@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { Ball } from './Ball';
+import RAPIER from '@dimforge/rapier3d-compat';
+import { RigidBody } from '@dimforge/rapier3d-compat';
 
 /**
  * Cartoon robot: intentionally simple for now. The important thing is that the
@@ -12,8 +14,12 @@ export class Robot {
   static readonly ROBOT_DEPTH = 0.6985; // 27.5"
   static readonly ROBOT_HEIGHT = 0.5588; // 22"
 
+  static readonly MAX_ACCELERATION = 15.0; // m/s^2
+
   readonly group = new THREE.Group();
   private readonly shooter: THREE.Mesh;
+  private rigidBody?: RAPIER.RigidBody;
+  private velocity = new THREE.Vector3();
 
   constructor(x = 0, z = 0) {
     const body = new THREE.Mesh(
@@ -53,6 +59,19 @@ export class Robot {
     this.group.position.set(x, 0, z);
   }
 
+  addColliders(world: RAPIER.World) {
+    const rbDesc = RAPIER.RigidBodyDesc.kinematicPositionBased()
+      .setTranslation(this.group.position.x, Robot.ROBOT_HEIGHT / 2, this.group.position.z);
+    this.rigidBody = world.createRigidBody(rbDesc);
+
+    const colliderDesc = RAPIER.ColliderDesc.cuboid(
+      Robot.ROBOT_WIDTH / 2,
+      Robot.ROBOT_HEIGHT / 2,
+      Robot.ROBOT_DEPTH / 2
+    );
+    world.createCollider(colliderDesc, this.rigidBody);
+  }
+
   setPosition(x: number, z: number) {
     this.group.position.set(x, 0, z);
   }
@@ -76,5 +95,37 @@ export class Robot {
 
   rpmToLaunchSpeed(rpm: number): number {
     return 0.002 * rpm;
+  }
+
+  getVelocity(target = new THREE.Vector3()): THREE.Vector3 {
+    return target.copy(this.velocity);
+  }
+
+  updateDrive(forward: number, strafe: number, turn: number, moveSpeed: number, turnSpeed: number, dt: number) {
+    this.group.rotation.y += turn * turnSpeed * dt;
+    const targetVelocity = new THREE.Vector3(forward, 0, strafe);
+    if (targetVelocity.lengthSq() > 0) {
+      targetVelocity.normalize().multiplyScalar(moveSpeed);
+    }
+
+    const maxChange = Robot.MAX_ACCELERATION * dt;
+    const steering = new THREE.Vector3().subVectors(targetVelocity, this.velocity);
+    if (steering.length() <= maxChange) {
+      this.velocity.copy(targetVelocity);
+    } else {
+      steering.normalize().multiplyScalar(maxChange);
+      this.velocity.add(steering);
+    }
+
+    if (this.velocity.lengthSq() > 0) {
+      this.group.position.addScaledVector(this.velocity, dt);
+    }
+
+    if (this.rigidBody) {
+      const pos = this.group.position;
+      const rot = this.group.quaternion;
+      this.rigidBody.setNextKinematicTranslation({ x: pos.x, y: Robot.ROBOT_HEIGHT / 2, z: pos.z });
+      this.rigidBody.setNextKinematicRotation({ x: rot.x, y: rot.y, z: rot.z, w: rot.w });
+    }
   }
 }
