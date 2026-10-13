@@ -19,7 +19,7 @@ export class Robot {
 
   readonly group = new THREE.Group();
   private readonly shooter: THREE.Mesh;
-  private rigidBody?: RAPIER.RigidBody;
+  private rigidBody?: RigidBody;
   private velocity = new THREE.Vector3();
 
   constructor(x = 0, z = 0) {

@@ -68,12 +68,14 @@ export class Level5 implements Level {
     );
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
 
-    this.touchOverlay = new TouchOverlay(
-      this.game.renderer.domElement.parentElement!,
-      {
-        handleShoot: (isDown) => this.handleShootInput(isDown),
-      },
-    );
+    if (window.PointerEvent && "maxTouchPoints" in navigator && navigator.maxTouchPoints > 0) {
+      this.touchOverlay = new TouchOverlay(
+        this.game.renderer.domElement.parentElement!,
+        {
+          handleShoot: (isDown) => this.handleShootInput(isDown),
+        },
+      );
+    }
 
     // Setup Table UI (Load from storage or use a robust default fallback)
     const storedTable = this.game.getStorage(2);
