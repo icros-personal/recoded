@@ -10,6 +10,7 @@ import { levels } from ".";
 import { DistanceLine } from "../entities/DistanceLine";
 import { ScoreOverlay } from "../ui/ScoreOverlay";
 import { DynamicShooter } from "../core/DynamicShooter";
+import { TouchOverlay } from "../ui/TouchOverlay";
 
 const INSTRUCTIONS =
   "Drive with WASD, rotate with J/L, and press K to shoot. Score as many of your 10 balls as you can!";
@@ -22,6 +23,10 @@ export class Level5 implements Level {
     subtitle: "The Driver Station",
     instructions: INSTRUCTIONS,
     targetLabel: "",
+    modal: {
+      title: "The Driver Station",
+      body: "In a real FRC match, your drivers aren't sitting on the field—they're stuck behind the driver station glass, looking at the robot from a fixed perspective. Driving without being right next to your robot takes practice, especially when lining up to score!",
+    },
   };
 
   readonly controls: ControlSpec[] = [];
@@ -39,6 +44,7 @@ export class Level5 implements Level {
   private hub!: Hub;
   private distanceLine!: DistanceLine;
   private scoreOverlay!: ScoreOverlay;
+  private touchOverlay: TouchOverlay | null = null;
   private table!: Table;
 
   private shooter!: DynamicShooter;
@@ -61,6 +67,13 @@ export class Level5 implements Level {
       this.game.renderer.domElement.parentElement!,
     );
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
+
+    this.touchOverlay = new TouchOverlay(
+      this.game.renderer.domElement.parentElement!,
+      {
+        handleShoot: (isDown) => this.handleShootInput(isDown),
+      },
+    );
 
     // Setup Table UI (Load from storage or use a robust default fallback)
     const storedTable = this.game.getStorage(2);
@@ -132,11 +145,15 @@ export class Level5 implements Level {
     if (k === "l") this.keys.l = isDown;
 
     if (k === "k") {
-      this.shooter.setKeyHeld(isDown);
-      if (isDown) {
-        this.shooter.tryFire(() => this.getShotAngle());
-        this.updateUIStatus();
-      }
+      this.handleShootInput(isDown);
+    }
+  }
+
+  private handleShootInput(isDown: boolean) {
+    this.shooter.setKeyHeld(isDown);
+    if (isDown) {
+      this.shooter.tryFire(() => this.getShotAngle());
+      this.updateUIStatus();
     }
   }
 
@@ -188,7 +205,23 @@ export class Level5 implements Level {
 
     let forwardInput = (this.keys.w ? 1 : 0) - (this.keys.s ? 1 : 0);
     let strafeInput = (this.keys.d ? 1 : 0) - (this.keys.a ? 1 : 0);
-    let turnInput = (this.keys.l ? 1 : 0) - (this.keys.j ? 1 : 0);
+    let turnInput = (this.keys.j ? 1 : 0) - (this.keys.l ? 1 : 0);
+
+    if (this.touchOverlay) {
+      if (Math.abs(this.touchOverlay.state.forward) > 0) {
+        forwardInput = this.touchOverlay.state.forward;
+      }
+      if (Math.abs(this.touchOverlay.state.strafe) > 0) {
+        strafeInput = this.touchOverlay.state.strafe;
+      }
+
+      if (this.touchOverlay.state.turnRight) {
+        turnInput = -1;
+      }
+      if (this.touchOverlay.state.turnLeft) {
+        turnInput = 1;
+      }
+    }
 
     this.robot.updateDrive(
       forwardInput,
@@ -234,9 +267,9 @@ export class Level5 implements Level {
     this.ballsRemaining = MAX_BALLS;
     this.shooter.reset();
     if (moveRobot) {
-        this.robot.group.position.x =-FIELD_LENGTH / 2 + Math.random() * 2 - 1;
-        this.robot.group.position.y = Math.random() * 4 - 2;
-        this.robot.group.rotation.y = Math.random() * 2 * Math.PI;
+      this.robot.group.position.x = -FIELD_LENGTH / 2 + Math.random() * 2 - 1;
+      this.robot.group.position.y = Math.random() * 4 - 2;
+      this.robot.group.rotation.y = Math.random() * 2 * Math.PI;
     }
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
     this.game.ui.setStatus(INSTRUCTIONS);
@@ -248,5 +281,6 @@ export class Level5 implements Level {
     window.removeEventListener("keyup", this.boundKeyUp);
     this.distanceLine.dispose();
     this.scoreOverlay.dispose();
+    this.touchOverlay?.dispose();
   }
 }
