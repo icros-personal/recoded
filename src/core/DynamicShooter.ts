@@ -57,7 +57,7 @@ export class DynamicShooter {
   }
 
   /** Attempts to fire a single ball, respecting the rate limit and ball budget. */
-  tryFire(getShotAngle: () => number, onShotEvent?: ShotCallback): boolean {
+  tryFire(getShotAngle: () => number): boolean {
     if (this.roundEnded) return false;
     if (this.ballsFired >= this.config.numBalls) return false;
     if (this.timeSinceLastShot < this.config.timeBetweenBalls) return false;
@@ -126,8 +126,6 @@ export class DynamicShooter {
 
     // 2. Update shots in flight
     if (this.shots.length > 0) {
-      this.game.stepPhysics(dt);
-
       for (let i = this.shots.length - 1; i >= 0; i--) {
         const shot = this.shots[i]!;
         shot.age += dt;

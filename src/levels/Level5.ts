@@ -1,10 +1,8 @@
-import * as THREE from "three";
 import type { Game } from "../core/Game";
 import type { ControlSpec, LevelInfo } from "../core/ui";
 import { FIELD_LENGTH, FIELD_WIDTH, Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
 import { Robot } from "../entities/Robot";
-import { Ball } from "../entities/Ball";
 import type { Level } from "./Level";
 import type { CameraSpec } from "../core/Camera";
 import { Table } from "../ui/Table";
@@ -93,7 +91,7 @@ export class Level5 implements Level {
     );
 
     // Setup Floor, Walls, and Hubs
-    const floor = new Floor(); // Ensure Floor includes boundary walls
+    const floor = new Floor(true); // Ensure Floor includes boundary walls
     floor.addColliders(game.world);
 
     this.hub = new Hub(Hub.HUB_X); // Center field or standard hub position
@@ -101,6 +99,7 @@ export class Level5 implements Level {
 
     // Start robot near the driver station end of the field
     this.robot = new Robot(-FIELD_LENGTH / 2 + 1, 2);
+    this.robot.addColliders(game.world);
 
     this.shooter = new DynamicShooter(this.game, this.robot, this.hub, {
       numBalls: 10,
@@ -120,7 +119,7 @@ export class Level5 implements Level {
     window.addEventListener("keydown", this.boundKeyDown);
     window.addEventListener("keyup", this.boundKeyUp);
 
-    this.resetLevelState();
+    this.resetLevelState(false /* moveRobot */);
   }
 
   private handleKey(e: KeyboardEvent, isDown: boolean) {
@@ -135,10 +134,7 @@ export class Level5 implements Level {
     if (k === "k") {
       this.shooter.setKeyHeld(isDown);
       if (isDown) {
-        this.shooter.tryFire(
-          () => this.getShotAngle(),
-          (event) => this.handleShotEvent(event),
-        );
+        this.shooter.tryFire(() => this.getShotAngle());
         this.updateUIStatus();
       }
     }
@@ -153,7 +149,10 @@ export class Level5 implements Level {
   }
 
   private handleShotEvent(event: "scored" | "missed" | "round_complete") {
-    this.totalShots++;
+    if (event !== "round_complete") {
+      this.totalShots++;
+    }
+
     if (event === "scored") {
       this.successfulShots++;
       this.game.ui.setStatus("✓ Scored!", "success");
@@ -161,16 +160,16 @@ export class Level5 implements Level {
       const passed = this.successfulShots >= this.levelRequirement;
       if (passed) {
         this.game.ui.setStatus(
-          `✓ Level Complete! Scored ${this.successfulShots}/${MAX_BALLS}`,
+          `✓ Level Complete! Scored ${this.successfulShots}/${this.totalShots}`,
           "success",
         );
         this.game.ui.setAction("NEXT LEVEL");
       } else {
         this.game.ui.setStatus(
-          `Round over. Scored ${this.successfulShots}/${MAX_BALLS}. Press RESET to try again.`,
+          `Round over. Scored ${this.successfulShots}/${this.totalShots}. Press RELOAD to try again.`,
           "miss",
         );
-        this.game.ui.setAction("RESET");
+        this.game.ui.setAction("RELOAD");
       }
     }
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
@@ -201,43 +200,22 @@ export class Level5 implements Level {
     );
 
     const distance = this.robot.getDistanceToHub(this.hub.group.position);
-    const targetRpm = this.getInterpolatedRPM(distance);
+    const targetRpm = this.table.getInterpolatedValue(distance);
 
     this.shooter.update(
       dt,
       targetRpm,
       () => this.getShotAngle(),
-      (event) => {
-        this.totalShots++;
-        if (event === "scored") {
-          this.successfulShots++;
-          this.game.ui.setStatus("✓ Scored!", "success");
-        }
-        this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
-      },
+      (event) => this.handleShotEvent(event),
     );
+
+    this.game.stepPhysics(dt);
 
     this.distanceLine.update(
       this.robot.getMuzzlePosition(),
       this.hub.group.position,
       this.game.camera,
     );
-  }
-
-  private getInterpolatedRPM(distance: number): number {
-    const entries = Array.from(this.table!.values().entries());
-    if (entries.length === 0) return 3000;
-    if (distance <= entries[0]![0]) return entries[0]![1];
-    if (distance >= entries[entries.length - 1]![0])
-      return entries[entries.length - 1]![1];
-
-    let i = 1;
-    while (i < entries.length && entries[i]![0] < distance) i++;
-
-    const [d0, rpm0] = entries[i - 1]!;
-    const [d1, rpm1] = entries[i]!;
-    const t = (distance - d0) / (d1 - d0);
-    return rpm0 + t * (rpm1 - rpm0);
   }
 
   onAction() {
@@ -252,11 +230,14 @@ export class Level5 implements Level {
     }
   }
 
-  private resetLevelState() {
+  private resetLevelState(moveRobot = true) {
     this.ballsRemaining = MAX_BALLS;
-    this.successfulShots = 0;
-    this.totalShots = 0;
     this.shooter.reset();
+    if (moveRobot) {
+        this.robot.group.position.x =-FIELD_LENGTH / 2 + Math.random() * 2 - 1;
+        this.robot.group.position.y = Math.random() * 4 - 2;
+        this.robot.group.rotation.y = Math.random() * 2 * Math.PI;
+    }
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
     this.game.ui.setStatus(INSTRUCTIONS);
     this.game.ui.setAction("RESET");

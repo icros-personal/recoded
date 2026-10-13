@@ -1,7 +1,8 @@
-import * as THREE from 'three';
-import RAPIER from '@dimforge/rapier3d-compat';
-import { FIELD_LENGTH, FIELD_WIDTH } from './Floor';
-import { Robot } from './Robot';
+import * as THREE from "three";
+import RAPIER from "@dimforge/rapier3d-compat";
+import { FIELD_LENGTH, FIELD_WIDTH } from "./Floor";
+import { Robot } from "./Robot";
+import { CollisionGroups } from "./CollisionGroups";
 
 type Vec3 = { x: number; y: number; z: number };
 
@@ -11,11 +12,12 @@ export class Ball {
 
   readonly mesh: THREE.Mesh;
   private body: RAPIER.RigidBody | null = null;
+  private collider: RAPIER.Collider | null = null;
 
   constructor() {
     this.mesh = new THREE.Mesh(
       new THREE.SphereGeometry(Ball.RADIUS, 24, 16),
-      new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.7 })
+      new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.7 }),
     );
     this.mesh.castShadow = true;
   }
@@ -30,7 +32,13 @@ export class Ball {
   }
 
   inBounds(): boolean {
-    return this.position.y > Robot.ROBOT_HEIGHT / 2 && this.position.x < FIELD_LENGTH / 2 && this.position.x > -FIELD_LENGTH / 2 && this.position.z < FIELD_WIDTH / 2 && this.position.z > -FIELD_WIDTH / 2;
+    return (
+      this.position.y > Robot.ROBOT_HEIGHT / 2 &&
+      this.position.x < FIELD_LENGTH / 2 &&
+      this.position.x > -FIELD_LENGTH / 2 &&
+      this.position.z < FIELD_WIDTH / 2 &&
+      this.position.z > -FIELD_WIDTH / 2
+    );
   }
 
   /** Park the ball (visual only) at a position. */
@@ -38,20 +46,21 @@ export class Ball {
     this.mesh.position.set(pos.x, pos.y, pos.z);
   }
 
-  launch(world: RAPIER.World, pos: Vec3, velocity: Vec3, collideWithBalls = true) {
+  launch(world: RAPIER.World, pos: Vec3, velocity: Vec3) {
     this.remove(world);
 
     this.body = world.createRigidBody(
       RAPIER.RigidBodyDesc.dynamic()
         .setTranslation(pos.x, pos.y, pos.z)
         .setLinearDamping(0.05)
-        .setAngularDamping(0.1)
+        .setAngularDamping(0.1),
     );
-    const colliderDesc = RAPIER.ColliderDesc.ball(Ball.RADIUS).setRestitution(0.35);
-    if (!collideWithBalls) {
-      colliderDesc.setCollisionGroups(0x00020001);
-    }
-    world.createCollider(colliderDesc, this.body);
+    const colliderDesc = RAPIER.ColliderDesc.ball(Ball.RADIUS)
+      .setRestitution(0.35)
+      .setCollisionGroups(
+        (CollisionGroups.BALL_FIRING << 16) | CollisionGroups.ENVIRONMENT,
+      );
+    this.collider = world.createCollider(colliderDesc, this.body);
     this.body.setLinvel(velocity, true);
     this.body.setAngvel({ x: 0, y: 0, z: 0 }, true);
   }
@@ -61,6 +70,11 @@ export class Ball {
     if (!this.body) return;
     const p = this.body.translation();
     this.mesh.position.set(p.x, p.y, p.z);
+    if (this.collider && p.y > Robot.ROBOT_HEIGHT) {
+      this.collider.setCollisionGroups(
+        (CollisionGroups.BALL_ACTIVE << 16) | 0xffff,
+      );
+    }
   }
 
   /** Remove the physics body (the mesh stays where it is). */

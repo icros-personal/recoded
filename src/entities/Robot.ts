@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Ball } from './Ball';
 import RAPIER from '@dimforge/rapier3d-compat';
 import { RigidBody } from '@dimforge/rapier3d-compat';
+import { CollisionGroups } from './CollisionGroups';
 
 /**
  * Cartoon robot: intentionally simple for now. The important thing is that the
@@ -60,8 +61,11 @@ export class Robot {
   }
 
   addColliders(world: RAPIER.World) {
-    const rbDesc = RAPIER.RigidBodyDesc.kinematicPositionBased()
-      .setTranslation(this.group.position.x, Robot.ROBOT_HEIGHT / 2, this.group.position.z);
+    // 1. Change from kinematic to dynamic, and lock rotations so the robot doesn't tip over
+    const rbDesc = RAPIER.RigidBodyDesc.dynamic()
+      .setTranslation(this.group.position.x, Robot.ROBOT_HEIGHT / 2, this.group.position.z)
+      .lockRotations(); // Keep upright
+
     this.rigidBody = world.createRigidBody(rbDesc);
 
     const colliderDesc = RAPIER.ColliderDesc.cuboid(
@@ -69,6 +73,12 @@ export class Robot {
       Robot.ROBOT_HEIGHT / 2,
       Robot.ROBOT_DEPTH / 2
     );
+    // Optional: give it some mass/friction so it pushes balls realistically
+    colliderDesc.setRestitution(0.2);
+    colliderDesc.setMass(70);
+    colliderDesc.setFriction(0.5);
+    colliderDesc.setCollisionGroups(CollisionGroups.ROBOT << 16 | 0xffff)
+
     world.createCollider(colliderDesc, this.rigidBody);
   }
 
@@ -103,6 +113,11 @@ export class Robot {
 
   updateDrive(forward: number, strafe: number, turn: number, moveSpeed: number, turnSpeed: number, dt: number) {
     this.group.rotation.y += turn * turnSpeed * dt;
+    if (this.rigidBody) {
+      const rot = this.group.quaternion;
+      this.rigidBody.setRotation({x: rot.x, y: rot.y, z: rot.z, w: rot.w }, true);
+    }
+
     const targetVelocity = new THREE.Vector3(forward, 0, strafe);
     if (targetVelocity.lengthSq() > 0) {
       targetVelocity.normalize().multiplyScalar(moveSpeed);
@@ -117,15 +132,12 @@ export class Robot {
       this.velocity.add(steering);
     }
 
-    if (this.velocity.lengthSq() > 0) {
-      this.group.position.addScaledVector(this.velocity, dt);
-    }
-
     if (this.rigidBody) {
-      const pos = this.group.position;
-      const rot = this.group.quaternion;
-      this.rigidBody.setNextKinematicTranslation({ x: pos.x, y: Robot.ROBOT_HEIGHT / 2, z: pos.z });
-      this.rigidBody.setNextKinematicRotation({ x: rot.x, y: rot.y, z: rot.z, w: rot.w });
+      const currentLinvel = this.rigidBody.linvel();
+      this.rigidBody.setLinvel({x: this.velocity.x, y: currentLinvel.y, z: this.velocity.z}, true);
+
+      const pos = this.rigidBody.translation();
+      this.group.position.set(pos.x, pos.y - Robot.ROBOT_HEIGHT / 2, pos.z);
     }
   }
 }

@@ -121,7 +121,7 @@ export class Level4 extends BaseLevel {
       this.moveToNewDistance();
       this.resetShot();
     } else if (this.phase === "done") {
-      const level = levels[this.info.index + 1]?.();
+      const level = levels[this.info.index]?.();
       if (level) {
         this.game.loadLevel(level);
       }
