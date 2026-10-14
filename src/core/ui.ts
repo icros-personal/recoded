@@ -16,7 +16,6 @@ export interface LevelInfo {
   instructions: string;
   /** Overlay label in the viewport. Omit to hide it. */
   targetLabel?: string;
-  hint?: string;
   modal?: {
     title: string;
     body: string;
@@ -24,8 +23,6 @@ export interface LevelInfo {
 }
 
 export type StatusKind = 'info' | 'success' | 'miss';
-
-const DEFAULT_HINT = 'Three.js + Rapier';
 
 /**
  * Owns the static page shell (header, viewport, control bar) and exposes
@@ -36,7 +33,6 @@ export class GameUI {
   readonly viewport: HTMLDivElement;
 
   private readonly subtitleEl: HTMLDivElement;
-  private readonly hintEl: HTMLDivElement;
   private readonly targetLabelEl: HTMLDivElement;
   private readonly levelEl: HTMLElement;
   private readonly controlsEl: HTMLElement;
@@ -46,13 +42,14 @@ export class GameUI {
 
   private readonly inputs = new Map<string, HTMLInputElement>();
   private actionHandler: (() => void) | null = null;
+  private clearHandler: (() => void) | null = null;
 
   constructor(root: HTMLElement) {
     root.innerHTML = `
       <main class="game">
         <header>
-          <div><h1>FRC Robot Game</h1><div class="subtitle"></div></div>
-          <div class="hint"></div>
+          <div><h1>FRC Recoded</h1><div class="subtitle"></div></div>
+          <button id="clear" type="button">Reset data</button>
         </header>
         <div id="viewport" class="viewport" aria-label="Robot simulation"><div class="target-label"></div></div>
         <section class="level"></section>
@@ -64,7 +61,6 @@ export class GameUI {
 
     this.viewport = root.querySelector<HTMLDivElement>('#viewport')!;
     this.subtitleEl = root.querySelector<HTMLDivElement>('.subtitle')!;
-    this.hintEl = root.querySelector<HTMLDivElement>('.hint')!;
     this.targetLabelEl = root.querySelector<HTMLDivElement>('.target-label')!;
     this.levelEl = root.querySelector<HTMLElement>('.level')!;
     this.controlsEl = root.querySelector<HTMLElement>('.controls')!;
@@ -72,12 +68,12 @@ export class GameUI {
     this.statusEl = root.querySelector<HTMLDivElement>('#status')!;
 
     this.actionButton.addEventListener('click', () => this.actionHandler?.());
+    root.querySelector<HTMLButtonElement>('#clear')?.addEventListener('click', () => this.clearHandler?.());
   }
 
   /** Swap the header text, overlay label and control inputs for a new level. */
   showLevel(info: LevelInfo, controls: ControlSpec[]) {
     this.subtitleEl.textContent = `Level ${info.index}: ${info.subtitle}`;
-    this.hintEl.textContent = info.hint ?? DEFAULT_HINT;
     this.targetLabelEl.textContent = info.targetLabel ?? '';
     this.targetLabelEl.style.display = info.targetLabel ? '' : 'none';
     this.setControls(controls);
@@ -201,5 +197,9 @@ export class GameUI {
 
   onAction(handler: (() => void) | null) {
     this.actionHandler = handler;
+  }
+
+  onClear(handler: (() => void) | null) {
+    this.clearHandler = handler;
   }
 }

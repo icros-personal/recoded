@@ -111,7 +111,7 @@ export class DynamicShooter {
     // Handle hold-to-fire continuous mode
     if (this.isKeyHeld && this.ballsFired < this.config.numBalls) {
       if (this.timeSinceLastShot >= this.config.timeBetweenBalls) {
-        this.tryFire(getShotAngle, onShotEvent);
+        this.tryFire(getShotAngle);
       }
     }
 

@@ -1,8 +1,14 @@
-import * as THREE from 'three';
-import RAPIER from '@dimforge/rapier3d-compat';
-import { createCamera, DEFAULT_CAMERA, fitCamera, type CameraSpec, type GameCamera } from './Camera';
-import type { GameUI } from './ui';
-import type { Level } from '../levels/Level';
+import * as THREE from "three";
+import RAPIER from "@dimforge/rapier3d-compat";
+import {
+  createCamera,
+  DEFAULT_CAMERA,
+  fitCamera,
+  type CameraSpec,
+  type GameCamera,
+} from "./Camera";
+import type { GameUI } from "./ui";
+import type { Level } from "../levels/Level";
 
 /**
  * Runtime shared by every level: renderer, camera, lights, physics world and
@@ -11,7 +17,7 @@ import type { Level } from '../levels/Level';
  */
 export class Game {
   private accumulator = 0;
-  private readonly PHYSICS_TIMESTEP = 1/60;
+  private readonly PHYSICS_TIMESTEP = 1 / 60;
   readonly scene = new THREE.Scene();
   readonly ui: GameUI;
 
@@ -26,12 +32,14 @@ export class Game {
   world!: RAPIER.World;
 
   readonly renderer = new THREE.WebGLRenderer({ antialias: true });
-  private readonly storage: unknown[] = [];
+  private storage: unknown[] = [];
   private level: Level | null = null;
   private last = performance.now();
 
   constructor(ui: GameUI) {
+    this.storage = this.loadStorage();
     this.ui = ui;
+    this.ui.onClear(() => this.clearStorage());
     this.camera = createCamera(DEFAULT_CAMERA, this.aspect());
 
     this.scene.background = new THREE.Color(0xbfd7ea);
@@ -46,7 +54,7 @@ export class Game {
     sun.castShadow = true;
     this.scene.add(sun);
 
-    window.addEventListener('resize', () => this.resize());
+    window.addEventListener("resize", () => this.resize());
     this.resize();
   }
 
@@ -80,6 +88,31 @@ export class Game {
 
   setStorage(index: number, value: any) {
     this.storage[index] = value;
+    this.saveStorage();
+  }
+
+  // Inside Game.ts (conceptual)
+  private loadStorage() {
+    try {
+      const raw = localStorage.getItem("frc_sim_storage");
+      if (raw) return JSON.parse(raw);
+    } catch (e) {
+      console.warn("Failed to load storage", e);
+    }
+    return [];
+  }
+
+  private saveStorage() {
+    try {
+      localStorage.setItem("frc_sim_storage", JSON.stringify(this.storage));
+    } catch (e) {
+      console.warn("Failed to save storage", e);
+    }
+  }
+
+  clearStorage() {
+    this.storage = [];
+    localStorage.removeItem("frc_sim_storage");
   }
 
   private aspect(): number {
@@ -131,7 +164,9 @@ function disposeObject(root: THREE.Object3D) {
   root.traverse((obj) => {
     if (!(obj instanceof THREE.Mesh)) return;
     obj.geometry.dispose();
-    const materials = Array.isArray(obj.material) ? obj.material : [obj.material];
+    const materials = Array.isArray(obj.material)
+      ? obj.material
+      : [obj.material];
     for (const m of materials) m.dispose();
   });
 }
