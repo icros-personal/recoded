@@ -11,6 +11,7 @@ import { DistanceLine } from "../entities/DistanceLine";
 import { ScoreOverlay } from "../ui/ScoreOverlay";
 import { DynamicShooter } from "../core/DynamicShooter";
 import { TouchOverlay } from "../ui/TouchOverlay";
+import { KeyboardListener } from "../core/KeyboardListener";
 
 const INSTRUCTIONS =
   "Drive with WASD, rotate with J/L, and press K to shoot. Score as many of your 10 balls as you can!";
@@ -52,10 +53,7 @@ export class Level5 implements Level {
   private successfulShots = 0;
   private totalShots = 0;
 
-  // Key tracking for smooth driving
-  private keys = { w: false, a: false, s: false, d: false, j: false, l: false };
-  private boundKeyDown!: (e: KeyboardEvent) => void;
-  private boundKeyUp!: (e: KeyboardEvent) => void;
+  private keyboardListener!: KeyboardListener;
 
   setup(game: Game) {
     this.game = game;
@@ -68,7 +66,11 @@ export class Level5 implements Level {
     );
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
 
-    if (window.PointerEvent && "maxTouchPoints" in navigator && navigator.maxTouchPoints > 0) {
+    if (
+      window.PointerEvent &&
+      "maxTouchPoints" in navigator &&
+      navigator.maxTouchPoints > 0
+    ) {
       this.touchOverlay = new TouchOverlay(
         this.game.renderer.domElement.parentElement!,
         {
@@ -128,27 +130,12 @@ export class Level5 implements Level {
       this.distanceLine.group,
     );
 
-    // Bind keyboard inputs
-    this.boundKeyDown = (e: KeyboardEvent) => this.handleKey(e, true);
-    this.boundKeyUp = (e: KeyboardEvent) => this.handleKey(e, false);
-    window.addEventListener("keydown", this.boundKeyDown);
-    window.addEventListener("keyup", this.boundKeyUp);
-
+    this.keyboardListener = new KeyboardListener((e, isDown) => {
+      if (e.key.toLowerCase() === "k") {
+        this.handleShootInput(isDown);
+      }
+    });
     this.resetLevelState(false /* moveRobot */);
-  }
-
-  private handleKey(e: KeyboardEvent, isDown: boolean) {
-    const k = e.key.toLowerCase();
-    if (k === "w") this.keys.w = isDown;
-    if (k === "s") this.keys.s = isDown;
-    if (k === "a") this.keys.a = isDown;
-    if (k === "d") this.keys.d = isDown;
-    if (k === "j") this.keys.j = isDown;
-    if (k === "l") this.keys.l = isDown;
-
-    if (k === "k") {
-      this.handleShootInput(isDown);
-    }
   }
 
   private handleShootInput(isDown: boolean) {
@@ -205,9 +192,15 @@ export class Level5 implements Level {
     const moveSpeed = 4.0; // meters per second
     const turnSpeed = 2.5; // radians per second
 
-    let forwardInput = (this.keys.w ? 1 : 0) - (this.keys.s ? 1 : 0);
-    let strafeInput = (this.keys.d ? 1 : 0) - (this.keys.a ? 1 : 0);
-    let turnInput = (this.keys.j ? 1 : 0) - (this.keys.l ? 1 : 0);
+    let forwardInput =
+      (this.keyboardListener.isDown("w") ? 1 : 0) -
+      (this.keyboardListener.isDown("s") ? 1 : 0);
+    let strafeInput =
+      (this.keyboardListener.isDown("d") ? 1 : 0) -
+      (this.keyboardListener.isDown("a") ? 1 : 0);
+    let turnInput =
+      (this.keyboardListener.isDown("j") ? 1 : 0) -
+      (this.keyboardListener.isDown("l") ? 1 : 0);
 
     if (this.touchOverlay) {
       if (Math.abs(this.touchOverlay.state.forward) > 0) {
@@ -279,8 +272,7 @@ export class Level5 implements Level {
   }
 
   dispose() {
-    window.removeEventListener("keydown", this.boundKeyDown);
-    window.removeEventListener("keyup", this.boundKeyUp);
+    this.keyboardListener.dispose();
     this.distanceLine.dispose();
     this.scoreOverlay.dispose();
     this.touchOverlay?.dispose();

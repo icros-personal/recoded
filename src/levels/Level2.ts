@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { BaseLevel } from "./BaseLevel";
+import { SimpleBaseLevel } from "./SimpleBaseLevel";
 import { Ball } from "../entities/Ball";
 import { levels } from ".";
 import { Robot } from "../entities/Robot";
@@ -9,7 +9,7 @@ const SHOT_ANGLE_DEG = 60;
 
 type Phase = "ready" | "flying" | "scored" | "done";
 
-export class Level2 extends BaseLevel {
+export class Level2 extends SimpleBaseLevel {
   readonly info = {
     index: 2,
     subtitle: "Scoring from distance",

@@ -1,6 +1,6 @@
 import type { Game } from "../core/Game";
 import type { ControlSpec, LevelInfo } from "../core/ui";
-import { BaseLevel } from "./BaseLevel";
+import { SimpleBaseLevel } from "./SimpleBaseLevel";
 import { RpmGraph } from "../ui/RpmGraph";
 import { FixedBurstShooter } from "../core/FixedBurstShooter";
 import { levels } from ".";
@@ -15,7 +15,7 @@ const MAX_RPM = 5000;
 
 type Phase = "ready" | "firing" | "waiting" | "scored" | "done";
 
-export class Level3 extends BaseLevel {
+export class Level3 extends SimpleBaseLevel {
   readonly info: LevelInfo = {
     index: 3,
     subtitle: "Flywheels are tricky",

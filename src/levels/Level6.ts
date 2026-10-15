@@ -8,6 +8,7 @@ import type { Level } from "./Level";
 import type { CameraSpec } from "../core/Camera";
 import { levels } from ".";
 import { TouchOverlay } from "../ui/TouchOverlay";
+import { KeyboardListener } from "../core/KeyboardListener";
 
 // --- Turning model -------------------------------------------------------
 const TURN_SPEED = 5.0; // rad/s at full turn input
@@ -88,9 +89,6 @@ export class Level6 implements Level {
   private hub!: Hub;
   private touchOverlay: TouchOverlay | null = null;
 
-  private successfulShots = 0;
-  private totalShots = 0;
-
   // Lesson state
   private stage: Stage = "geometry";
   private kp = KP_START;
@@ -100,7 +98,6 @@ export class Level6 implements Level {
   private cmdQueue: { t: number; cmd: number }[] = [];
   private time = 0;
   private errorHistory: { t: number; e: number }[] = [];
-  private keysHeld = new Set<string>();
 
   private trial: Trial | null = null;
   private lastResult: TrialResult | null = null;
@@ -120,8 +117,7 @@ export class Level6 implements Level {
   private buttonRow!: HTMLDivElement;
   private toggleBtn: HTMLButtonElement | null = null;
 
-  private boundKeyDown!: (e: KeyboardEvent) => void;
-  private boundKeyUp!: (e: KeyboardEvent) => void;
+  private keyboardListener!: KeyboardListener;
 
   setup(game: Game) {
     this.game = game;
@@ -176,10 +172,9 @@ export class Level6 implements Level {
 
     this.buildPanel(this.game.ui.getLevelContainer());
 
-    this.boundKeyDown = (e: KeyboardEvent) => this.handleKey(e, true);
-    this.boundKeyUp = (e: KeyboardEvent) => this.handleKey(e, false);
-    window.addEventListener("keydown", this.boundKeyDown);
-    window.addEventListener("keyup", this.boundKeyUp);
+    this.keyboardListener = new KeyboardListener((e, isDown) =>
+      this.handleKey(e, isDown),
+    );
 
     this.resetLevelState(false);
     this.setStage("geometry");
@@ -456,9 +451,6 @@ export class Level6 implements Level {
   private handleKey(e: KeyboardEvent, isDown: boolean) {
     const k = e.key.toLowerCase();
 
-    if (isDown) this.keysHeld.add(k);
-    else this.keysHeld.delete(k);
-
     if (isDown) {
       if (k === "c") {
         this.toggleCameraView();
@@ -481,9 +473,16 @@ export class Level6 implements Level {
 
   /** Manual turning for stage 1. Positive = same direction as positive error. */
   private manualTurn(): number {
-    let left = this.keysHeld.has("a") || this.keysHeld.has("arrowleft") ? 1 : 0;
+    let left =
+      this.keyboardListener.isDown("a") ||
+      this.keyboardListener.isDown("arrowleft")
+        ? 1
+        : 0;
     let right =
-      this.keysHeld.has("d") || this.keysHeld.has("arrowright") ? 1 : 0;
+      this.keyboardListener.isDown("d") ||
+      this.keyboardListener.isDown("arrowright")
+        ? 1
+        : 0;
     if (this.touchOverlay) {
       if (this.touchOverlay.state.turnRight) {
         right = 1;
@@ -586,7 +585,7 @@ export class Level6 implements Level {
     this.robot.updateDrive(0, 0, turn, 0, TURN_SPEED, dt);
 
     // 5. Visuals + lesson panel
-    if (this.stage === 'proportional') {
+    if (this.stage === "proportional") {
       this.updateTrial(dt, angleError);
       this.resultEl.textContent = this.resultText();
     }
@@ -733,8 +732,7 @@ export class Level6 implements Level {
   }
 
   dispose() {
-    window.removeEventListener("keydown", this.boundKeyDown);
-    window.removeEventListener("keyup", this.boundKeyUp);
+    this.keyboardListener.dispose();
     this.game.stage.remove(this.facingArrow, this.targetArrow);
     this.facingArrow.dispose();
     this.targetArrow.dispose();

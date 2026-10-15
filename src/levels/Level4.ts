@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { Game } from "../core/Game";
 import type { ControlSpec, LevelInfo } from "../core/ui";
-import { BaseLevel } from "./BaseLevel";
+import { SimpleBaseLevel } from "./SimpleBaseLevel";
 import { FIELD_LENGTH, FIELD_WIDTH } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
 import { Robot } from "../entities/Robot";
@@ -19,7 +19,7 @@ const LEVEL_REQUIREMENT = 30; // Total successful shots needed across bursts to 
 
 type Phase = "ready" | "firing" | "waiting" | "scored" | "done";
 
-export class Level4 extends BaseLevel {
+export class Level4 extends SimpleBaseLevel {
   readonly info: LevelInfo = {
     index: 4,
     subtitle: "Can't the robot figure this out?",

@@ -8,7 +8,7 @@ import type { Robot } from "../entities/Robot";
 import { ScoreOverlay } from "../ui/ScoreOverlay";
 import type { Level } from "./Level";
 
-export abstract class BaseLevel implements Level {
+export abstract class SimpleBaseLevel implements Level {
   abstract readonly info: LevelInfo;
   abstract readonly controls: ControlSpec[];
   abstract readonly camera: CameraSpec;
