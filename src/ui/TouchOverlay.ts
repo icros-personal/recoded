@@ -1,4 +1,5 @@
 export interface TouchOverlayOptions {
+  noTranslate?: boolean;
   handleIntake?: (isDown: boolean) => void;
   handleShoot?: (isDown: boolean) => void;
 }
@@ -29,9 +30,9 @@ export class TouchOverlay {
       z-index: 10;
     `;
 
-    // --- Left Side: Virtual Joystick (Drive) ---
-    const joystickBase = document.createElement("div");
-    joystickBase.style.cssText = `
+      // --- Left Side: Virtual Joystick (Drive) ---
+      const joystickBase = document.createElement("div");
+      joystickBase.style.cssText = `
       position: absolute;
       left: 30px;
       bottom: 30px;
@@ -44,8 +45,8 @@ export class TouchOverlay {
       touch-action: none;
     `;
 
-    this.joystickThumbEl = document.createElement("div");
-    this.joystickThumbEl.style.cssText = `
+      this.joystickThumbEl = document.createElement("div");
+      this.joystickThumbEl.style.cssText = `
       position: absolute;
       left: 35px;
       top: 35px;
@@ -56,37 +57,39 @@ export class TouchOverlay {
       transform: translate(0px, 0px);
       transition: transform 0.05s linear;
     `;
-    joystickBase.appendChild(this.joystickThumbEl);
-    this.touchOverlayEl.appendChild(joystickBase);
+      joystickBase.appendChild(this.joystickThumbEl);
+    if (!options.noTranslate) {
+      this.touchOverlayEl.appendChild(joystickBase);
 
-    // Joystick event handlers (Pointer events support both touch and mouse drag)
-    joystickBase.addEventListener("pointerdown", (e) => {
-      this.joystickPointerId = e.pointerId;
-      const rect = joystickBase.getBoundingClientRect();
-      this.joystickCenter = {
-        x: rect.left + rect.width / 2,
-        y: rect.top + rect.height / 2,
-      };
-      joystickBase.setPointerCapture(e.pointerId);
-      this.updateJoystick(e.clientX, e.clientY);
-    });
-
-    joystickBase.addEventListener("pointermove", (e) => {
-      if (this.joystickPointerId === e.pointerId) {
+      // Joystick event handlers (Pointer events support both touch and mouse drag)
+      joystickBase.addEventListener("pointerdown", (e) => {
+        this.joystickPointerId = e.pointerId;
+        const rect = joystickBase.getBoundingClientRect();
+        this.joystickCenter = {
+          x: rect.left + rect.width / 2,
+          y: rect.top + rect.height / 2,
+        };
+        joystickBase.setPointerCapture(e.pointerId);
         this.updateJoystick(e.clientX, e.clientY);
-      }
-    });
+      });
 
-    const endJoystick = (e: PointerEvent) => {
-      if (this.joystickPointerId === e.pointerId) {
-        this.joystickPointerId = null;
-        this.touchInput.forward = 0;
-        this.touchInput.strafe = 0;
-        this.joystickThumbEl.style.transform = `translate(0px, 0px)`;
-      }
-    };
-    joystickBase.addEventListener("pointerup", endJoystick);
-    joystickBase.addEventListener("pointercancel", endJoystick);
+      joystickBase.addEventListener("pointermove", (e) => {
+        if (this.joystickPointerId === e.pointerId) {
+          this.updateJoystick(e.clientX, e.clientY);
+        }
+      });
+
+      const endJoystick = (e: PointerEvent) => {
+        if (this.joystickPointerId === e.pointerId) {
+          this.joystickPointerId = null;
+          this.touchInput.forward = 0;
+          this.touchInput.strafe = 0;
+          this.joystickThumbEl.style.transform = `translate(0px, 0px)`;
+        }
+      };
+      joystickBase.addEventListener("pointerup", endJoystick);
+      joystickBase.addEventListener("pointercancel", endJoystick);
+    }
 
     // --- Right Side: Button Deck ---
     // Layout: [Turn Left] [Shoot] [Turn Right]  + [Intake] above or below

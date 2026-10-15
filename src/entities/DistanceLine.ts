@@ -65,7 +65,7 @@ export class DistanceLine {
       backdropFilter: "blur(4px)",
       whiteSpace: "nowrap",
       transition: "opacity 0.15s ease",
-      zIndex: "100",
+      zIndex: "1",
     });
 
     // Ensure container has relative positioning so absolute child positions correctly
