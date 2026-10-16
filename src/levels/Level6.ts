@@ -9,6 +9,8 @@ import type { CameraSpec } from "../core/Camera";
 import { levels } from ".";
 import { TouchOverlay } from "../ui/TouchOverlay";
 import { KeyboardListener } from "../core/KeyboardListener";
+import { LessonPanel } from "../ui/LessonPanel";
+import { ErrorGraph } from "../ui/ErrorGraph";
 
 // --- Turning model -------------------------------------------------------
 const TURN_SPEED = 5.0; // rad/s at full turn input
@@ -24,7 +26,6 @@ const KP_STEP = 0.1;
 const KP_START = 0.1; // deliberately too low so students discover they need more
 const ALIGNED_TOLERANCE = (2 * Math.PI) / 180; // 2 degrees
 const GRAPH_SECONDS = 4;
-const GRAPH_RANGE = Math.PI / 2; // graph shows +/- 90 degrees
 
 const TEST_START_ERROR = (80 * Math.PI) / 180;
 const SETTLE_HOLD = 0.4;
@@ -88,6 +89,8 @@ export class Level6 implements Level {
   private robot!: Robot;
   private hub!: Hub;
   private touchOverlay: TouchOverlay | null = null;
+  private lessonPanel!: LessonPanel;
+  private errorGraph!: ErrorGraph;
 
   // Lesson state
   private stage: Stage = "geometry";
@@ -106,16 +109,6 @@ export class Level6 implements Level {
   // Visual aids
   private facingArrow!: THREE.ArrowHelper;
   private targetArrow!: THREE.ArrowHelper;
-
-  // Lesson panel (plain DOM)
-  private panel!: HTMLDivElement;
-  private panelTitle!: HTMLDivElement;
-  private panelBody!: HTMLDivElement;
-  private readout!: HTMLPreElement;
-  private resultEl!: HTMLDivElement;
-  private graph!: HTMLCanvasElement;
-  private buttonRow!: HTMLDivElement;
-  private toggleBtn: HTMLButtonElement | null = null;
 
   private keyboardListener!: KeyboardListener;
 
@@ -170,7 +163,9 @@ export class Level6 implements Level {
       this.targetArrow,
     );
 
-    this.buildPanel(this.game.ui.getLevelContainer());
+    this.lessonPanel = new LessonPanel(this.game.ui.getLevelContainer());
+    this.errorGraph = new ErrorGraph(window.innerWidth / 2, window.innerHeight / 8);
+    this.lessonPanel.setCustomContent(this.errorGraph.canvas);
 
     this.keyboardListener = new KeyboardListener((e, isDown) =>
       this.handleKey(e, isDown),
@@ -180,71 +175,8 @@ export class Level6 implements Level {
     this.setStage("geometry");
   }
 
-  // ------------------------------------------------------------------------
-  // Lesson panel
-  // ------------------------------------------------------------------------
-
-  private buildPanel(parent: HTMLElement) {
-    const root = document.createElement("div");
-    root.style.cssText =
-      "max-height:400px;overflow:auto;padding:12px 14px;border-radius:10px;" +
-      "background:white;font:13px/1.45 system-ui,sans-serif;" +
-      "pointer-events:auto;z-index:10;box-sizing:border-box;";
-
-    this.panelTitle = document.createElement("div");
-    this.panelTitle.style.cssText =
-      "font-weight:700;font-size:15px;margin-bottom:6px;";
-
-    this.panelBody = document.createElement("div");
-    this.panelBody.style.cssText = "margin-bottom:8px;";
-
-    this.readout = document.createElement("pre");
-    this.readout.style.cssText =
-      "margin:0 0 8px;padding:6px 8px;border-radius:6px;background:rgba(0,0,0,.6);" +
-      "font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;white-space:pre-wrap;";
-
-    this.resultEl = document.createElement("div");
-    this.resultEl.style.cssText =
-      "margin:0 0 8px; padding: 6px 8px; border-radius:6px; background:rgba(0,0,0,.08);font-weight: 600";
-
-    this.graph = document.createElement("canvas");
-    this.graph.width = window.innerWidth / 2;
-    this.graph.height = this.graph.width / 4;
-    this.graph.style.cssText =
-      "background: rgba(0,0,0,.6);width:100%;height:auto;display:block;margin-bottom:8px;border-radius:6px;";
-
-    this.buttonRow = document.createElement("div");
-    this.buttonRow.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;";
-
-    root.append(
-      this.panelTitle,
-      this.panelBody,
-      this.readout,
-      this.resultEl,
-      this.graph,
-      this.buttonRow,
-    );
-    parent.appendChild(root);
-    this.panel = root;
-  }
-
-  private makeButton(label: string, onClick: () => void): HTMLButtonElement {
-    const b = document.createElement("button");
-    b.textContent = label;
-    b.tabIndex = -1; // keep Space free for shooting
-    b.style.cssText =
-      "padding:6px 10px;border-radius:6px;border:1px solid rgba(0,192,96,.5);" +
-      "background:rgba(0,255,128,.25);color:inherit;font:inherit;cursor:pointer;";
-    b.addEventListener("mousedown", (e) => e.preventDefault());
-    b.addEventListener("click", () => {
-      onClick();
-      b.blur();
-    });
-    return b;
-  }
-
   private setStage(stage: Stage) {
-    this.panel.scrollTop = 0;
+    this.lessonPanel.scrollToTop();
     this.stage = stage;
     this.bangBangOn = false;
     this.pEnabled = false;
@@ -268,15 +200,10 @@ export class Level6 implements Level {
   }
 
   private renderStage() {
-    this.toggleBtn = null;
-    const buttons: HTMLButtonElement[] = [];
-    this.resultEl.style.display =
-      this.stage === "proportional" ? "block" : "none";
-
+    this.lessonPanel.setResult(this.resultText(), this.stage === 'proportional');
     if (this.stage === "geometry") {
-      this.panelTitle.textContent =
-        "1 · Where are we, and where should we point?";
-      this.panelBody.innerHTML = `
+      this.lessonPanel.setTitle("1 · Where are we, and where should we point?");
+      this.lessonPanel.setBody(`
         Think of the floor as a flat map: every position is an <b>(x, z)</b> pair.
         The <b>vector</b> from the robot to the hub is just subtraction:
         <br><code>d = (hubX − robotX, hubZ − robotZ) = (dx, dz)</code>
@@ -286,65 +213,56 @@ export class Level6 implements Level {
         <br><code>error = target − θ</code>
         <br>(We keep it between −180° and 180° so we always turn the short way.)
         <br><br><b>Try it:</b> turn with <b>A / D</b> (or ←/→) until the error reads 0°. The green arrow is where you <i>should</i> face. Our controller's whole job is to drive that error to zero.
-      `;
-      buttons.push(this.makeButton("Next ▶", () => this.setStage("bangbang")));
+      `);
+      this.lessonPanel.setButtons([
+        {label: "Next ▶", onClick: () => this.setStage('bangbang')}
+      ]);
     } else if (this.stage === "bangbang") {
-      this.panelTitle.textContent = "2 · The simplest controller: bang-bang";
-      this.panelBody.innerHTML = `
+      this.lessonPanel.setTitle("2 · The simplest controller: bang-bang");
+      this.lessonPanel.setBody(`
         Rule: if the error is positive, turn one way at <b>full power</b>; if negative, turn the other way at full power.
         <br><code>output = error &gt; 0 ? +1 : −1</code>
         <br>Press <b>Enable</b> and watch the error graph. The robot is always acting on slightly old information (sensor and motor delay), so by the time it reverses it has already flown past the target. It overshoots, flips, overshoots the other way, and never settles.
         <br>Hit <b>Scramble</b> to try it from a new heading.
-      `;
-      this.toggleBtn = this.makeButton("", () => {
-        this.bangBangOn = !this.bangBangOn;
-        this.syncToggleLabel();
-      });
-      this.syncToggleLabel();
-      buttons.push(
-        this.toggleBtn,
-        this.makeButton("Scramble ⟲", () => this.scrambleHeading()),
-        this.makeButton("◀ Back", () => this.setStage("geometry")),
-        this.makeButton("Next ▶", () => this.setStage("proportional")),
-      );
+      `);
+      this.lessonPanel.setButtons([
+        {
+          label: this.bangBangOn ? 'Disable bang-bang' : 'Enable bang-bang',
+          onClick: () => {
+            this.bangBangOn = !this.bangBangOn;
+            this.renderStage();
+          }
+        },
+        { label: "Scramble ⟲", onClick: () => this.scrambleHeading() },
+        { label: "◀ Back", onClick: () => this.setStage("geometry") },
+        { label: "Next ▶", onClick: () => this.setStage("proportional") },
+      ]);
     } else {
-      this.panelTitle.textContent = "3 · Proportional control";
-      this.panelBody.innerHTML = `
+      this.lessonPanel.setTitle("3 · Proportional control");
+      this.lessonPanel.setBody(`
         Better idea: the further away you are, the harder you push.
         <br><code>output = kP × error</code> (limited to −1…+1)
         <br>Big error → full speed. Small error → gentle. Zero error → stop. The robot brakes <i>itself</i> as it arrives.
         <br><b>kP</b> is the gain you tune: too low and the robot is lazy; too high and it overshoots and wobbles (crank it far enough and it turns back into bang-bang!).
         <br><br><b>Your challenge:</b> pick a kP (↑ / ↓ or the buttons), then press <b>Run test</b>. The robot starts ${Math.round(toDeg(TEST_START_ERROR))}° off target. Settle to within ${Math.round(toDeg(ALIGNED_TOLERANCE))}° in under <b>${TARGET_SETTLE} s</b> to pass.
         ${this.passed ? "<br><b>Passed!</b> You can now fire some balls (hold K or the Shoot button) and press Next Level when ready." : ""}
-      `;
-      this.toggleBtn = this.makeButton("", () => {
-        this.pEnabled = !this.pEnabled;
-        if (!this.pEnabled) this.trial = null; // cancel any running test
-        this.syncToggleLabel();
-      });
-      this.syncToggleLabel();
-      buttons.push(
-        this.toggleBtn,
-        this.makeButton("kP −", () => this.changeKp(-KP_STEP)),
-        this.makeButton("kP +", () => this.changeKp(KP_STEP)),
-        this.makeButton("Run test ▶", () => this.startTrial()),
-        this.makeButton("◀ Back", () => this.setStage("bangbang")),
-      );
-    }
-
-    this.buttonRow.replaceChildren(...buttons);
-  }
-
-  private syncToggleLabel() {
-    if (!this.toggleBtn) return;
-    if (this.stage === "bangbang") {
-      this.toggleBtn.textContent = this.bangBangOn
-        ? "Disable bang-bang"
-        : "Enable bang-bang";
-    } else {
-      this.toggleBtn.textContent = this.pEnabled
-        ? "Disable P control"
-        : "Enable P control";
+      `);
+      this.lessonPanel.setButtons([
+        {
+          label: this.pEnabled ? 'Disable P control' : 'Enable P control',
+          onClick: () => {
+            this.pEnabled = !this.pEnabled;
+            if (!this.pEnabled) {
+              this.trial = null;
+            }
+            this.renderStage();
+          }
+        },
+        { label: "kP −", onClick: () => this.changeKp(-KP_STEP) },
+        { label: "kP +", onClick: () => this.changeKp(KP_STEP) },
+        { label: "Run test ▶", onClick: () => this.startTrial() },
+        { label: "◀ Back", onClick: () => this.setStage("bangbang") },
+      ]);
     }
   }
 
@@ -374,9 +292,9 @@ export class Level6 implements Level {
     const sign = Math.random() < 0.5 ? -1 : 1;
     this.setHeadingError(sign * TEST_START_ERROR);
     this.resetTurnModel();
+    this.renderStage();
     this.errorHistory = [];
     this.pEnabled = true;
-    this.syncToggleLabel();
     this.lastResult = null;
     this.trial = {
       elapsed: 0,
@@ -587,7 +505,7 @@ export class Level6 implements Level {
     // 5. Visuals + lesson panel
     if (this.stage === "proportional") {
       this.updateTrial(dt, angleError);
-      this.resultEl.textContent = this.resultText();
+      this.lessonPanel.setResult(this.resultText(), true);
     }
     this.errorHistory.push({ t: this.time, e: angleError });
     while (
@@ -607,7 +525,7 @@ export class Level6 implements Level {
       angleError,
       cmd,
     );
-    this.drawGraph();
+    this.errorGraph.draw(this.errorHistory, this.time);
 
     this.game.stepPhysics(dt);
   }
@@ -663,43 +581,7 @@ export class Level6 implements Level {
         `\noutput         = clamp(kP × error) = ${cmd >= 0 ? "+" : ""}${f(cmd)}`;
     }
 
-    this.readout.textContent = text;
-    this.readout.style.color = aligned ? "#7dffc0" : "";
-  }
-
-  private drawGraph() {
-    const g = this.graph.getContext("2d");
-    if (!g) return;
-    const w = this.graph.width;
-    const h = this.graph.height;
-
-    g.clearRect(0, 0, w, h);
-    g.fillStyle = "rgba(255,255,255,.06)";
-    g.fillRect(0, 0, w, h);
-
-    // Zero line
-    g.strokeStyle = "rgba(255,255,255,.35)";
-    g.lineWidth = 1;
-    g.beginPath();
-    g.moveTo(0, h / 2);
-    g.lineTo(w, h / 2);
-    g.stroke();
-
-    // Error trace (newest sample at the right edge)
-    g.strokeStyle = "#5ee6a8";
-    g.lineWidth = 2;
-    g.beginPath();
-    this.errorHistory.forEach((s, i) => {
-      const x = w - ((this.time - s.t) / GRAPH_SECONDS) * w;
-      const y = h / 2 - clamp(s.e / GRAPH_RANGE, -1, 1) * (h / 2 - 3);
-      if (i === 0) g.moveTo(x, y);
-      else g.lineTo(x, y);
-    });
-    g.stroke();
-
-    g.fillStyle = "rgba(255,255,255,.6)";
-    g.font = "10px system-ui, sans-serif";
-    g.fillText("angle error (±90°) · last 4 s", 6, 12);
+    this.lessonPanel.setReadout(text, aligned);
   }
 
   // ------------------------------------------------------------------------
@@ -736,7 +618,7 @@ export class Level6 implements Level {
     this.game.stage.remove(this.facingArrow, this.targetArrow);
     this.facingArrow.dispose();
     this.targetArrow.dispose();
-    this.panel.remove();
+    this.lessonPanel.dispose();
     this.touchOverlay?.dispose();
   }
 }

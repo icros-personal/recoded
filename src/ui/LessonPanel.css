@@ -1,0 +1,58 @@
+.lessonPanel {
+    max-height: 400px;
+    overflow: auto;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: white;
+    font: 13px/1.45 system-ui,sans-serif;
+    pointer-events: auto;
+    z-index: 10;
+    box-sizing: border-box;
+}
+
+.lessonTitle {
+    font-weight: 700;
+    font-size: 15px;
+    margin-bottom: 6px;
+}
+
+.lessonBody {
+    margin-bottom: 8px;
+}
+
+.lessonReadout {
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(0,0,0,.6);
+    font: 12px/1.4 ui-monospace,Menlo,Consolas,monospace;
+    white-space: pre-wrap;
+}
+
+.lessonCustomContent {
+    margin-bottom: 8px;
+}
+
+.lessonResult {
+    margin: 0 0 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: rgba(0,0,0,.08);
+    font-weight: 600;
+}
+
+.lessonButtonRow {
+    display: flex;
+    flex-wrap: gap;
+    gap: 6px;
+}
+
+.lessonButton {
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 192, 96, .5);
+    background: rgba(0, 255, 128, .25);
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
