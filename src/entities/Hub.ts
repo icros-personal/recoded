@@ -52,6 +52,7 @@ export class Hub {
       holeRadius: OPENING_RADIUS,
       baseY: HEIGHT,
       thickness: 0.08,
+      redBlue: x < 0 ? 'red' : 'blue',
     });
     this.group.add(this.top.group);
 

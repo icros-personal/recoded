@@ -10,6 +10,7 @@ export interface HubTopOptions {
   /** Hub-local height of the underside of the deck. */
   baseY: number;
   thickness: number;
+  redBlue: 'red' | 'blue';
 }
 
 type Point2 = [x: number, z: number];
@@ -33,7 +34,7 @@ export class HubTop {
   /** Hub-local corner points (2 × polygon size per piece). */
   private readonly parts: THREE.Vector3[][] = [];
 
-  constructor({ halfSize: w, holeRadius: r, baseY, thickness }: HubTopOptions) {
+  constructor({ halfSize: w, holeRadius: r, baseY, thickness, redBlue }: HubTopOptions) {
     const a = (r * Math.sqrt(3)) / 2; // hexagon apothem: its flats are at z = ±a
 
     const polygons: Point2[][] = [
@@ -54,7 +55,7 @@ export class HubTop {
       }
     }
 
-    const material = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.65 });
+    const material = new THREE.MeshStandardMaterial({ color: redBlue === 'blue' ? 0x60a5fa : 0xdc2626, roughness: 0.65 });
 
     for (const polygon of polygons) {
       const points = [

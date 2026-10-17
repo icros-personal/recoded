@@ -141,4 +141,8 @@ export class Robot {
       this.group.position.set(pos.x, pos.y - Robot.ROBOT_HEIGHT / 2, pos.z);
     }
   }
+
+  getPhysicsBody(): RAPIER.RigidBody | undefined {
+    return this.rigidBody;
+  }
 }

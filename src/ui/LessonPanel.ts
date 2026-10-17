@@ -4,6 +4,7 @@ export interface ButtonSpec {
   label: string;
   onClick: () => void;
   primary?: boolean;
+  disabled?: boolean;
 }
 
 export class LessonPanel {
@@ -33,12 +34,6 @@ export class LessonPanel {
 
     this.customContentEl = document.createElement("div");
     this.customContentEl.className = "lessonCustomContent";
-
-    //this.graph = document.createElement("canvas");
-    //this.graph.width = window.innerWidth / 2;
-    //this.graph.height = this.graph.width / 4;
-    //this.graph.style.cssText =
-    //"background: rgba(0,0,0,.6);width:100%;height:auto;display:block;margin-bottom:8px;border-radius:6px;";
 
     this.buttonRowEl = document.createElement("div");
     this.buttonRowEl.className = "lessonButtonRow";
@@ -78,6 +73,7 @@ export class LessonPanel {
       b.textContent = spec.label;
       b.tabIndex = -1;
       b.className = "lessonButton";
+      b.disabled = !!spec.disabled;
       b.addEventListener("mousedown", (e) => e.preventDefault());
       b.addEventListener("click", () => {
         spec.onClick();

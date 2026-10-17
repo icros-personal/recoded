@@ -11,6 +11,7 @@ import { TouchOverlay } from "../ui/TouchOverlay";
 import { KeyboardListener } from "../core/KeyboardListener";
 import { LessonPanel } from "../ui/LessonPanel";
 import { ErrorGraph } from "../ui/ErrorGraph";
+import { FloorObstacles } from "../entities/FloorObstacles";
 
 // --- Turning model -------------------------------------------------------
 const TURN_SPEED = 5.0; // rad/s at full turn input
@@ -130,6 +131,9 @@ export class Level6 implements Level {
     const floor = new Floor(true);
     floor.addColliders(game.world);
 
+    const obstacles = new FloorObstacles();
+    obstacles.addColliders(game.world);
+
     this.hub = new Hub(Hub.HUB_X);
     this.hub.addColliders(game.world);
 
@@ -157,6 +161,7 @@ export class Level6 implements Level {
 
     game.stage.add(
       floor.mesh,
+      obstacles.group,
       this.robot.group,
       this.hub.group,
       this.facingArrow,

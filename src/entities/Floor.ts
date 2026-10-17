@@ -1,5 +1,8 @@
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
+import { Bump } from './Bump';
+import { Hub } from './Hub';
+import { Trench } from './Trench';
 
 export const FIELD_WIDTH = 8.128; // z-direction
 export const FIELD_LENGTH = 16.459; // x-direction, meters

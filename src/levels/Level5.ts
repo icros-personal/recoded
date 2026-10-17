@@ -12,6 +12,9 @@ import { ScoreOverlay } from "../ui/ScoreOverlay";
 import { DynamicShooter } from "../core/DynamicShooter";
 import { TouchOverlay } from "../ui/TouchOverlay";
 import { KeyboardListener } from "../core/KeyboardListener";
+import { Bump } from "../entities/Bump";
+import { Trench } from "../entities/Trench";
+import { FloorObstacles } from "../entities/FloorObstacles";
 
 const INSTRUCTIONS =
   "Drive with WASD, rotate with J/L, and press K to shoot. Score as many of your 10 balls as you can!";
@@ -111,8 +114,13 @@ export class Level5 implements Level {
     const floor = new Floor(true); // Ensure Floor includes boundary walls
     floor.addColliders(game.world);
 
+    const obstacles = new FloorObstacles();
+    obstacles.addColliders(game.world);
+
     this.hub = new Hub(Hub.HUB_X); // Center field or standard hub position
     this.hub.addColliders(game.world);
+    const hub2 = new Hub(-Hub.HUB_X); // Center field or standard hub position
+    hub2.addColliders(game.world);
 
     // Start robot near the driver station end of the field
     this.robot = new Robot(-FIELD_LENGTH / 2 + 1, 2);
@@ -125,8 +133,10 @@ export class Level5 implements Level {
 
     game.stage.add(
       floor.mesh,
+      obstacles.group,
       this.robot.group,
       this.hub.group,
+      hub2.group,
       this.distanceLine.group,
     );
 
@@ -276,5 +286,6 @@ export class Level5 implements Level {
     this.distanceLine.dispose();
     this.scoreOverlay.dispose();
     this.touchOverlay?.dispose();
+    this.table.dispose();
   }
 }
