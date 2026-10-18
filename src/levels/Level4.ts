@@ -4,7 +4,7 @@ import type { ControlSpec, LevelInfo } from "../core/ui";
 import { SimpleBaseLevel } from "./SimpleBaseLevel";
 import { FIELD_LENGTH, FIELD_WIDTH } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
-import { Robot } from "../entities/Robot";
+import { SimpleRobot } from "../entities/SimpleRobot";
 import type { Level } from "./Level";
 import type { CameraSpec } from "../core/Camera";
 import { Table } from "../ui/Table";
@@ -94,7 +94,7 @@ export class Level4 extends SimpleBaseLevel {
 
     const initialDistance = 4.23;
     const [robotX, robotZ] = this.positionRobotAtDistance(initialDistance);
-    this.robot = new Robot(robotX);
+    this.robot = new SimpleRobot(robotX);
     this.robot.group.position.z = robotZ;
     this.robot.group.rotation.y = this.rotationAngle;
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);

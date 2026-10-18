@@ -2,7 +2,7 @@ import type { Game } from "../core/Game";
 import type { ControlSpec, LevelInfo } from "../core/ui";
 import { FIELD_LENGTH, FIELD_WIDTH, Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
-import { Robot } from "../entities/Robot";
+import { SimpleRobot } from "../entities/SimpleRobot";
 import type { Level } from "./Level";
 import type { CameraSpec } from "../core/Camera";
 import { Table } from "../ui/Table";
@@ -44,7 +44,7 @@ export class Level5 implements Level {
   };
 
   private game!: Game;
-  private robot!: Robot;
+  private robot!: SimpleRobot;
   private hub!: Hub;
   private distanceLine!: DistanceLine;
   private scoreOverlay!: ScoreOverlay;
@@ -123,7 +123,7 @@ export class Level5 implements Level {
     hub2.addColliders(game.world);
 
     // Start robot near the driver station end of the field
-    this.robot = new Robot(-FIELD_LENGTH / 2 + 1, 2);
+    this.robot = new SimpleRobot(-FIELD_LENGTH / 2 + 1, 2);
     this.robot.addColliders(game.world);
 
     this.shooter = new DynamicShooter(this.game, this.robot, this.hub, {

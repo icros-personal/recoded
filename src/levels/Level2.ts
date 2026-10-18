@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { SimpleBaseLevel } from "./SimpleBaseLevel";
 import { Ball } from "../entities/Ball";
 import { levels } from ".";
-import { Robot } from "../entities/Robot";
+import { SimpleRobot } from "../entities/SimpleRobot";
 
 const INSTRUCTIONS = "Score from 3 different distances.";
 const SHOT_ANGLE_DEG = 60;
@@ -49,7 +49,7 @@ export class Level2 extends SimpleBaseLevel {
   protected override initEntities() {
     const dist = this.getNextDistance();
     const robotX = this.hub.group.position.x - dist;
-    this.robot = new Robot(robotX);
+    this.robot = new SimpleRobot(robotX);
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
 
     this.ball = new Ball();

@@ -4,7 +4,7 @@ import type { ControlSpec, LevelInfo } from "../core/ui";
 import { Ball } from "../entities/Ball";
 import { Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
-import { Robot } from "../entities/Robot";
+import { SimpleRobot } from "../entities/SimpleRobot";
 import type { Level } from "./Level";
 import type { CameraSpec } from "../core/Camera";
 import { levels } from ".";
@@ -42,7 +42,7 @@ export class Level1 implements Level {
   };
 
   private game!: Game;
-  private robot!: Robot;
+  private robot!: SimpleRobot;
   private hub!: Hub;
   private ball!: Ball;
 
@@ -55,7 +55,7 @@ export class Level1 implements Level {
     const floor = new Floor();
     floor.addColliders(game.world);
 
-    this.robot = new Robot(-7.0);
+    this.robot = new SimpleRobot(-7.0);
     this.hub = new Hub(Hub.HUB_X);
     this.hub.addColliders(game.world);
     this.ball = new Ball();

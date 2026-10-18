@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { FIELD_LENGTH, FIELD_WIDTH } from "./Floor";
-import { Robot } from "./Robot";
+import { SimpleRobot } from "./SimpleRobot";
 import { CollisionGroups } from "./CollisionGroups";
 
 type Vec3 = { x: number; y: number; z: number };
@@ -33,7 +33,7 @@ export class Ball {
 
   inBounds(): boolean {
     return (
-      this.position.y > Robot.ROBOT_HEIGHT / 2 &&
+      this.position.y > SimpleRobot.ROBOT_HEIGHT / 2 &&
       this.position.x < FIELD_LENGTH / 2 &&
       this.position.x > -FIELD_LENGTH / 2 &&
       this.position.z < FIELD_WIDTH / 2 &&
@@ -70,7 +70,7 @@ export class Ball {
     if (!this.body) return;
     const p = this.body.translation();
     this.mesh.position.set(p.x, p.y, p.z);
-    if (this.collider && p.y > Robot.ROBOT_HEIGHT) {
+    if (this.collider && p.y > SimpleRobot.ROBOT_HEIGHT) {
       this.collider.setCollisionGroups(
         (CollisionGroups.BALL_ACTIVE << 16) | 0xffff,
       );

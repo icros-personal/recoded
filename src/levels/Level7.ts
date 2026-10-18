@@ -3,7 +3,7 @@ import type { Game } from "../core/Game";
 import type { ControlSpec, LevelInfo } from "../core/ui";
 import { FIELD_LENGTH, FIELD_WIDTH, Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
-import { Robot } from "../entities/Robot";
+import { SimpleRobot } from "../entities/SimpleRobot";
 import type { Level } from "./Level";
 import type { CameraSpec } from "../core/Camera";
 import { levels } from ".";
@@ -55,7 +55,7 @@ export class Level7 implements Level {
   private mode: Mode = "design";
 
   private game!: Game;
-  private robot!: Robot;
+  private robot!: SimpleRobot;
   private hub!: Hub;
   private lessonPanel!: LessonPanel;
 
@@ -86,7 +86,7 @@ export class Level7 implements Level {
     const obstacles = new FloorObstacles();
     obstacles.addColliders(game.world);
 
-    this.robot = new Robot(START_X, START_Z);
+    this.robot = new SimpleRobot(START_X, START_Z);
     this.robot.addColliders(game.world);
     this.startHeading = this.yawOf(this.robot.group.quaternion);
 
@@ -182,7 +182,7 @@ export class Level7 implements Level {
 
     const pos = this.robot.getPhysicsBody()!.translation();
     const q = this.robot.getPhysicsBody()!.rotation();
-    this.robot.group.position.set(pos.x, pos.y - Robot.ROBOT_HEIGHT / 2, pos.z);
+    this.robot.group.position.set(pos.x, pos.y - SimpleRobot.ROBOT_HEIGHT / 2, pos.z);
     this.robot.group.quaternion.set(q.x, q.y, q.z, q.w);
   }
 
@@ -226,7 +226,7 @@ export class Level7 implements Level {
     this.game.stepPhysics(dt);
     const pos = this.robot.getPhysicsBody()!.translation();
     const q = this.robot.getPhysicsBody()!.rotation();
-    this.robot.group.position.set(pos.x, pos.y - Robot.ROBOT_HEIGHT / 2, pos.z);
+    this.robot.group.position.set(pos.x, pos.y - SimpleRobot.ROBOT_HEIGHT / 2, pos.z);
     this.robot.group.quaternion.set(q.x, q.y, q.z, q.w);
 
     if (this.mode === "run" && this.follower) {

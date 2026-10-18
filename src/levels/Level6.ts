@@ -3,7 +3,7 @@ import type { Game } from "../core/Game";
 import type { ControlSpec, LevelInfo } from "../core/ui";
 import { FIELD_LENGTH, FIELD_WIDTH, Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
-import { Robot } from "../entities/Robot";
+import { SimpleRobot } from "../entities/SimpleRobot";
 import type { Level } from "./Level";
 import type { CameraSpec } from "../core/Camera";
 import { levels } from ".";
@@ -87,7 +87,7 @@ export class Level6 implements Level {
   private isTopDown = false;
 
   private game!: Game;
-  private robot!: Robot;
+  private robot!: SimpleRobot;
   private hub!: Hub;
   private touchOverlay: TouchOverlay | null = null;
   private lessonPanel!: LessonPanel;
@@ -138,7 +138,7 @@ export class Level6 implements Level {
     this.hub.addColliders(game.world);
 
     // Start robot near the driver station end
-    this.robot = new Robot(-FIELD_LENGTH / 2 + 1, -2);
+    this.robot = new SimpleRobot(-FIELD_LENGTH / 2 + 1, -2);
     this.robot.addColliders(game.world);
 
     // Arrows: blue = where the robot faces, green = where it SHOULD face

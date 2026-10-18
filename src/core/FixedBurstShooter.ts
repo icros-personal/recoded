@@ -2,7 +2,7 @@ import * as THREE from "three";
 import type { Game } from "./Game";
 import { Ball } from "../entities/Ball";
 import { Hub } from "../entities/Hub";
-import { Robot } from "../entities/Robot";
+import { SimpleRobot } from "../entities/SimpleRobot";
 
 export interface FixedBurstShooterConfig {
   ballsPerBurst?: number;
@@ -30,7 +30,7 @@ export class FixedBurstShooter {
 
   constructor(
     private game: Game,
-    private robot: Robot,
+    private robot: SimpleRobot,
     private hub: Hub,
     config: FixedBurstShooterConfig = {},
   ) {

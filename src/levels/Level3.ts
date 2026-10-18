@@ -5,7 +5,7 @@ import { RpmGraph } from "../ui/RpmGraph";
 import { FixedBurstShooter } from "../core/FixedBurstShooter";
 import { levels } from ".";
 import type { CameraSpec } from "../core/Camera";
-import { Robot } from "../entities/Robot";
+import { SimpleRobot } from "../entities/SimpleRobot";
 
 const REQUIRED_HITS_PER_BURST = 6;
 const REQUIRED_SUCCESSFUL_BURSTS = 3;
@@ -69,7 +69,7 @@ export class Level3 extends SimpleBaseLevel {
 
     const dist = this.getNextDistance();
     const robotX = this.hub.group.position.x - dist;
-    this.robot = new Robot(robotX);
+    this.robot = new SimpleRobot(robotX);
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
 
     const suggestedRpm = this.getStoredRpmForDistance(dist);

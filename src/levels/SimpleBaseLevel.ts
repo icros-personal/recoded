@@ -4,7 +4,7 @@ import type { ControlSpec, LevelInfo } from "../core/ui";
 import { DistanceLine } from "../entities/DistanceLine";
 import { Floor } from "../entities/Floor";
 import { Hub } from "../entities/Hub";
-import type { Robot } from "../entities/Robot";
+import type { SimpleRobot } from "../entities/SimpleRobot";
 import { ScoreOverlay } from "../ui/ScoreOverlay";
 import type { Level } from "./Level";
 
@@ -14,7 +14,7 @@ export abstract class SimpleBaseLevel implements Level {
   abstract readonly camera: CameraSpec;
 
   protected game!: Game;
-  protected robot!: Robot;
+  protected robot!: SimpleRobot;
   protected hub!: Hub;
 
   protected distanceLine!: DistanceLine;
