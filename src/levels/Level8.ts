@@ -13,6 +13,7 @@ import { PathEditor } from "../entities/PathEditor";
 import { PathFollower, wrapAngle } from "../core/PathFollower";
 import { inAllianceZone, inNeutralZone } from "../core/zoneChecks";
 import { Robot } from "../entities/Robot";
+import { Ball } from "../entities/Ball";
 
 // Robot start (x, z) -- also the first point of every path.
 const START_X = -FIELD_LENGTH / 2 + 1;
@@ -67,6 +68,8 @@ export class Level8 implements Level {
   private visitedMiddle = false;
   private completed = false;
 
+  private balls: Ball[] = [];
+
   // Last commanded (slew-limited) velocities
   private cmdVx = 0;
   private cmdVz = 0;
@@ -94,12 +97,24 @@ export class Level8 implements Level {
     this.robot.addColliders(game.world);
     this.startHeading = this.yawOf(this.robot.group.quaternion);
 
+    for (let ix = 0; ix < 12; ix++) {
+      for (let iz = 0; iz < 30; iz++) {
+        const ball =  new Ball('field');
+        const x = (ix - (12 - 1) / 2) * Ball.RADIUS * 2;
+        const z = (iz - (30 - 1) / 2) * Ball.RADIUS * 2;
+        ball.place({x, y: Ball.RADIUS, z});
+        ball.addColliders(game.world);
+        this.balls.push(ball);
+      }
+    }
+
     game.stage.add(
       floor.mesh,
       this.robot.group,
       this.hub.group,
       blueHub.group,
       obstacles.group,
+      ...this.balls.map(ball => ball.mesh),
     );
 
     // Path editor lives on the stage so it is drawn in the 3D scene
@@ -228,6 +243,9 @@ export class Level8 implements Level {
     }
 
     this.game.stepPhysics(dt);
+    for (const ball of this.balls) {
+      ball.syncMesh();
+    }
     const pos = this.robot.getPhysicsBody()!.translation();
     const q = this.robot.getPhysicsBody()!.rotation();
     this.robot.group.position.set(pos.x, pos.y - SimpleRobot.ROBOT_HEIGHT / 2, pos.z);
