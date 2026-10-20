@@ -137,7 +137,7 @@ export class Level7 implements Level {
     this.resetRobot();
     this.visitedMiddle = false;
     this.completed = false;
-    this.follower = new PathFollower(samples);
+    this.follower = new PathFollower(samples, []);
     this.mode = "run";
     this.editor.setEnabled(false);
     this.game.setCamera(this.driverStationCamera);
@@ -211,7 +211,7 @@ export class Level7 implements Level {
         z: pos.z,
         heading: this.yawOf(this.robot.group.quaternion),
       };
-      const cmd = this.follower.update(pose);
+      const cmd = this.follower.update(pose, dt);
 
       this.cmdVx = this.approach(this.cmdVx, cmd.vx, MAX_LIN_ACCEL * dt);
       this.cmdVz = this.approach(this.cmdVz, cmd.vz, MAX_LIN_ACCEL * dt);
