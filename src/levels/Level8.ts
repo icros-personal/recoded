@@ -69,6 +69,7 @@ export class Level8 implements Level {
   private completed = false;
 
   private balls: Ball[] = [];
+  private ballsByCollider: Map<number, Ball> = new Map<number, Ball>();
 
   // Last commanded (slew-limited) velocities
   private cmdVx = 0;
@@ -91,22 +92,10 @@ export class Level8 implements Level {
     obstacles.addColliders(game.world);
 
     this.robot = new Robot(START_X, START_Z);
-    for (let i = 0; i < 50; i++) {
-    this.robot.addBall();
-    }
     this.robot.addColliders(game.world);
     this.startHeading = this.yawOf(this.robot.group.quaternion);
 
-    for (let ix = 0; ix < 12; ix++) {
-      for (let iz = 0; iz < 30; iz++) {
-        const ball =  new Ball('field');
-        const x = (ix - (12 - 1) / 2) * Ball.RADIUS * 2;
-        const z = (iz - (30 - 1) / 2) * Ball.RADIUS * 2;
-        ball.place({x, y: Ball.RADIUS, z});
-        ball.addColliders(game.world);
-        this.balls.push(ball);
-      }
-    }
+    this.resetField();
 
     game.stage.add(
       floor.mesh,
@@ -114,7 +103,6 @@ export class Level8 implements Level {
       this.hub.group,
       blueHub.group,
       obstacles.group,
-      ...this.balls.map(ball => ball.mesh),
     );
 
     // Path editor lives on the stage so it is drawn in the 3D scene
@@ -146,6 +134,32 @@ export class Level8 implements Level {
   // ------------------------------------------------------------------------
   // Mode switching
   // ------------------------------------------------------------------------
+
+  private resetField() {
+    for (const ball of this.balls) {
+      this.game.stage.remove(ball.mesh);
+      ball.remove(this.game.world);
+    }
+
+    this.ballsByCollider.clear();
+    this.balls = [];
+
+    for (let ix = 0; ix < 12; ix++) {
+      for (let iz = 0; iz < 30; iz++) {
+        const ball =  new Ball('field');
+        const x = (ix - (12 - 1) / 2) * Ball.RADIUS * 2;
+        const z = (iz - (30 - 1) / 2) * Ball.RADIUS * 2;
+        ball.place({x, y: Ball.RADIUS, z});
+        ball.addColliders(this.game.world);
+        this.ballsByCollider.set(ball.getCollider()!.handle, ball);
+        this.balls.push(ball);
+      }
+    }
+
+    this.game.stage.add(
+      ...this.balls.map(ball => ball.mesh),
+    );
+  }
 
   private startRun() {
     const samples = this.editor.getSamples();
@@ -188,6 +202,10 @@ export class Level8 implements Level {
     if (!body) {
       return;
     }
+
+    this.robot.clearBalls();
+    this.resetField();
+
     const y = body.translation().y;
     body.setTranslation({ x: START_X, y, z: START_Z }, true);
     const h = this.startHeading;
@@ -243,6 +261,24 @@ export class Level8 implements Level {
     }
 
     this.game.stepPhysics(dt);
+
+    const collected: Ball[] = [];
+    this.game.world.intersectionPairsWith(this.robot.getIntakeCollider(), (otherCollider) => {
+      const ball = this.ballsByCollider.get(otherCollider.handle);
+      if (ball) {
+        collected.push(ball);
+      }
+    });
+
+    for (const ball of collected) {
+      if (this.robot.getBallCount() < this.robot.getMaxCapacity()) {
+        this.ballsByCollider.delete(ball.getCollider()!.handle);
+        ball.remove(this.game.world);
+        ball.mesh.parent?.remove(ball.mesh);
+        this.robot.addBall();
+      }
+    }
+
     for (const ball of this.balls) {
       ball.syncMesh();
     }
@@ -258,6 +294,7 @@ export class Level8 implements Level {
       }
 
       if (this.follower.finished) {
+        this.robot.getPhysicsBody()?.setAngvel({x: 0, y: 0, z: 0}, true);
         if (this.visitedMiddle && inAllianceZone(pos.x, pos.z) && this.isPointingAtHub()) {
           this.completed = true;
           this.mode = "design";

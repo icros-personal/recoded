@@ -78,7 +78,7 @@ export class SimpleRobot {
     colliderDesc.setRestitution(0.2);
     colliderDesc.setMass(70);
     colliderDesc.setFriction(0.5);
-    colliderDesc.setCollisionGroups(CollisionGroups.ROBOT << 16 | 0xffff)
+    colliderDesc.setCollisionGroups(CollisionGroups.ROBOT << 16 | 0xffff);
 
     world.createCollider(colliderDesc, this.rigidBody);
   }

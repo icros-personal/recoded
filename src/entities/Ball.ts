@@ -45,7 +45,11 @@ export class Ball {
       .setRestitution(0.15)
       .setFriction(0.7);
 
-    world.createCollider(colliderDesc, this.body);
+    this.collider = world.createCollider(colliderDesc, this.body);
+  }
+
+  getCollider() {
+    return this.collider;
   }
 
   get isLaunched(): boolean {

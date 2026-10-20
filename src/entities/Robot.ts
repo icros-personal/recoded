@@ -1,19 +1,47 @@
 import * as THREE from "three";
 import { SimpleRobot } from "./SimpleRobot";
 import { Ball } from "./Ball";
+import type { World } from "@dimforge/rapier3d-compat";
+import RAPIER from "@dimforge/rapier3d-compat";
+import { CollisionGroups } from "./CollisionGroups";
 
 export class Robot extends SimpleRobot {
   static readonly DEFAULT_MAX_CAPACITY = 50;
+  static readonly INTAKE_HEIGHT = Ball.RADIUS * 2;
+  static readonly INTAKE_DEPTH = 0.06;
 
   private readonly maxCapacity: number;
   private ballCount = 0;
   private readonly ballMeshes: THREE.Mesh[] = [];
   private readonly storagePositions: THREE.Vector3[] = [];
 
+  private intakeMesh: THREE.Mesh;
+  private intakeCollider!: RAPIER.Collider;
+
   constructor(x = 0, z = 0, maxCapacity = Robot.DEFAULT_MAX_CAPACITY) {
     super(x, z);
+    this.intakeMesh = new THREE.Mesh(
+        new THREE.BoxGeometry(Robot.INTAKE_DEPTH, Robot.INTAKE_HEIGHT, SimpleRobot.ROBOT_DEPTH),
+        new THREE.MeshStandardMaterial({ color: 0x475569, transparent: true, opacity: 0.6, roughness: 0.75}),
+    );
+    this.intakeMesh.position.x = SimpleRobot.ROBOT_WIDTH / 2 + Robot.INTAKE_DEPTH / 2;
+    this.intakeMesh.position.y = -SimpleRobot.ROBOT_HEIGHT / 2 + Robot.INTAKE_HEIGHT;
+    this.group.children[0]?.add(this.intakeMesh);
+
     this.maxCapacity = maxCapacity;
     this.generatePackingPositions();
+  }
+
+  override addColliders(world: World): void {
+      super.addColliders(world);
+      const intakeDesc = RAPIER.ColliderDesc
+        .cuboid(Robot.INTAKE_DEPTH / 2, Robot.INTAKE_HEIGHT / 2, SimpleRobot.ROBOT_DEPTH / 2)
+        .setSensor(true)
+        .setTranslation(this.intakeMesh.position.x, this.intakeMesh.position.y, 0)
+        .setDensity(0)
+        .setCollisionGroups((CollisionGroups.ROBOT_INTAKE << 16) | CollisionGroups.BALL_ACTIVE);
+
+    this.intakeCollider = world.createCollider(intakeDesc, this.getPhysicsBody());
   }
 
   /**
@@ -93,6 +121,11 @@ export class Robot extends SimpleRobot {
     return this.ballCount >= this.maxCapacity;
   }
 
+  clearBalls() {
+    this.group.remove(...this.ballMeshes);
+    this.ballCount = 0;
+  }
+
   /**
    * Attempts to add a ball to the robot's inventory.
    * Returns true if successful, or false if the robot is already at max capacity.
@@ -147,5 +180,9 @@ export class Robot extends SimpleRobot {
     }
 
     return true;
+  }
+
+  getIntakeCollider(): RAPIER.Collider {
+    return this.intakeCollider;
   }
 }
