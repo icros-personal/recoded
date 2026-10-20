@@ -16,6 +16,8 @@ import type { Level } from "../levels/Level";
  * the next level loads, the stage and world are thrown away and rebuilt.
  */
 export class Game {
+  static readonly STORAGE_KEY = 'frc_sim_storage_v1';
+
   private accumulator = 0;
   private readonly PHYSICS_TIMESTEP = 1 / 60;
   readonly scene = new THREE.Scene();
@@ -32,12 +34,11 @@ export class Game {
   world!: RAPIER.World;
 
   readonly renderer = new THREE.WebGLRenderer({ antialias: true });
-  private storage: unknown[] = [];
+  private storage: Record<string, unknown> = this.loadStorage();
   private level: Level | null = null;
   private last = performance.now();
 
   constructor(ui: GameUI) {
-    this.storage = this.loadStorage();
     this.ui = ui;
     this.ui.onClear(() => this.clearStorage());
     this.camera = createCamera(DEFAULT_CAMERA, this.aspect());
@@ -82,19 +83,19 @@ export class Game {
     requestAnimationFrame((now) => this.tick(now));
   }
 
-  getStorage(index: number) {
-    return this.storage[index];
+  getStorage(key: string): unknown {
+    return this.storage[key];
   }
 
-  setStorage(index: number, value: any) {
-    this.storage[index] = value;
+  setStorage(key: string, value: unknown): void {
+    this.storage[key] = value;
     this.saveStorage();
   }
 
   // Inside Game.ts (conceptual)
   private loadStorage() {
     try {
-      const raw = localStorage.getItem("frc_sim_storage");
+      const raw = localStorage.getItem(Game.STORAGE_KEY);
       if (raw) return JSON.parse(raw);
     } catch (e) {
       console.warn("Failed to load storage", e);
@@ -104,15 +105,15 @@ export class Game {
 
   private saveStorage() {
     try {
-      localStorage.setItem("frc_sim_storage", JSON.stringify(this.storage));
+      localStorage.setItem(Game.STORAGE_KEY, JSON.stringify(this.storage));
     } catch (e) {
       console.warn("Failed to save storage", e);
     }
   }
 
   clearStorage() {
-    this.storage = [];
-    localStorage.removeItem("frc_sim_storage");
+    this.storage = {};
+    localStorage.removeItem(Game.STORAGE_KEY);
   }
 
   private aspect(): number {

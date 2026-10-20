@@ -11,6 +11,7 @@ import { Table } from "../ui/Table";
 import { levels } from ".";
 import { RpmGraph } from "../ui/RpmGraph";
 import { FixedBurstShooter } from "../core/FixedBurstShooter";
+import { InterpolationTable } from "../core/InterpolationTable";
 
 const INSTRUCTIONS =
   "It's a lot of work coming up with values for every distance. Can we add a few points to a table and let the robot interpolate?";
@@ -63,24 +64,8 @@ export class Level4 extends SimpleBaseLevel {
   private table: Table | null = null;
 
   protected override initEntities() {
-    // Prefer Level 3 storage if available, otherwise fall back to Level 2
-    const storageData = this.game.getStorage(3) ?? this.game.getStorage(2);
-    
-    const map = new Map<number, number>();
-    if (storageData && Array.isArray(storageData)) {
-      for (const pair of storageData) {
-        if (
-          Array.isArray(pair) &&
-          pair.length === 2 &&
-          Number.isFinite(pair[0]) &&
-          Number.isFinite(pair[1])
-        ) {
-          map.set(Math.round(pair[0] * 100) / 100, pair[1]);
-        }
-      }
-    }
-    
-    this.table = new Table(["Distance", "RPM"], map);
+    const data = InterpolationTable.fromStorage(this.game.getStorage('rpmTable'));
+    this.table = new Table(["Distance", "RPM"], data.values());
     
     const controlsContainer = this.game.ui.getControlsContainer();
     controlsContainer.insertBefore(
@@ -121,6 +106,7 @@ export class Level4 extends SimpleBaseLevel {
       this.moveToNewDistance();
       this.resetShot();
     } else if (this.phase === "done") {
+      this.game.setStorage('rpmTable', this.table!.toStorage());
       const level = levels[this.info.index]?.();
       if (level) {
         this.game.loadLevel(level);

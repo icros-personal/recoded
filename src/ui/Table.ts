@@ -1,3 +1,4 @@
+import { InterpolationTable } from '../core/InterpolationTable';
 import './Table.css';
 
 interface Row {
@@ -18,13 +19,13 @@ interface Row {
 export class Table {
   readonly element: HTMLDivElement;
 
-  private readonly map: Map<number, number>;
+  private readonly data: InterpolationTable;
   private readonly body: HTMLTableSectionElement;
   private readonly rows: Row[] = [];
   private readonly handlers: Array<(values: Map<number, number>) => void> = [];
 
   constructor(headers: [string, string], initialValues: Map<number, number> = new Map()) {
-    this.map = new Map(initialValues);
+    this.data = new InterpolationTable(initialValues);
 
     this.element = document.createElement('div');
     this.element.className = 'data-table';
@@ -41,7 +42,7 @@ export class Table {
     this.buildDraftRow(table.createTFoot().insertRow(), headers);
     this.element.append(table);
 
-    for (const [key, value] of this.map) this.addRow(key, value);
+    for (const [key, value] of this.data.values()) this.addRow(key, value);
     this.sortRows();
   }
 
@@ -51,7 +52,7 @@ export class Table {
 
   /** A copy of the current values, in ascending key order. */
   values(): Map<number, number> {
-    return new Map([...this.map].sort(([a], [b]) => a - b));
+    return this.data.values();
   }
 
   /** Called after every edit, add or remove. Returns an unsubscribe function. */
@@ -88,15 +89,15 @@ export class Table {
 
     keyInput.addEventListener('change', () => {
       const next = keyInput.valueAsNumber;
-      if (Number.isNaN(next) || (next !== row.key && this.map.has(next))) {
+      if (Number.isNaN(next) || (next !== row.key && this.data.values().has(next))) {
         keyInput.value = String(row.key); // empty or duplicate: revert
         flagInvalid(keyInput);
         return;
       }
       if (next === row.key) return;
-      const current = this.map.get(row.key)!;
-      this.map.delete(row.key);
-      this.map.set(next, current);
+      const current = this.data.values().get(row.key)!;
+      this.data.delete(row.key);
+      this.data.set(next, current);
       row.key = next;
       row.dirty = true;
       this.emit();
@@ -105,11 +106,11 @@ export class Table {
     valueInput.addEventListener('change', () => {
       const next = valueInput.valueAsNumber;
       if (Number.isNaN(next)) {
-        valueInput.value = String(this.map.get(row.key));
+        valueInput.value = String(this.data.values().get(row.key));
         flagInvalid(valueInput);
         return;
       }
-      this.map.set(row.key, next);
+      this.data.set(row.key, next);
       this.emit();
     });
 
@@ -135,7 +136,7 @@ export class Table {
     remove.title = 'Remove row';
     remove.setAttribute('aria-label', 'Remove row');
     remove.addEventListener('click', () => {
-      this.map.delete(row.key);
+      this.data.delete(row.key);
       this.rows.splice(this.rows.indexOf(row), 1);
       tr.remove();
       this.emit();
@@ -172,11 +173,11 @@ export class Table {
       const key = keyInput.valueAsNumber;
       const value = valueInput.valueAsNumber;
       if (Number.isNaN(key) || Number.isNaN(value)) return false;
-      if (this.map.has(key)) {
+      if (this.data.values().has(key)) {
         flagInvalid(keyInput);
         return false;
       }
-      this.map.set(key, value);
+      this.data.set(key, value);
       this.addRow(key, value);
       keyInput.value = '';
       valueInput.value = '';
@@ -198,31 +199,9 @@ export class Table {
   }
 
   getInterpolatedValue(key: number): number {
-    const entries = Array.from(this.values().entries());
-
-    if (entries.length === 0) return 1000;
-
-    if (key <= entries[0]![0]) {
-      this.highlight(0);
-      return entries[0]![1];
-    }
-
-    if (key >= entries[entries.length - 1]![0]) {
-      this.highlight(entries.length - 1);
-      return entries[entries.length - 1]![1];
-    }
-
-    let i = 1;
-    while (i < entries.length && entries[i]![0] < key) {
-      i++;
-    }
-
-    this.highlight(i - 1, i);
-    const [d0, rpm0] = entries[i - 1]!;
-    const [d1, rpm1] = entries[i]!;
-
-    const t = (key - d0) / (d1 - d0);
-    return rpm0 + t * (rpm1 - rpm0);
+    const result = this.data.getInterpolatedValue(key);
+    this.highlight(...result.indices);
+    return result.value;
   }
 
   private emit() {
@@ -233,6 +212,10 @@ export class Table {
 
   dispose() {
     this.getRoot().remove();
+  }
+
+  toStorage() {
+    return this.data.toStorage();
   }
 }
 

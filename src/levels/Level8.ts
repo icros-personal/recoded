@@ -15,6 +15,7 @@ import { inAllianceZone, inNeutralZone } from "../core/zoneChecks";
 import { Robot } from "../entities/Robot";
 import { Ball } from "../entities/Ball";
 import { Table } from "../ui/Table";
+import { InterpolationTable } from "../core/InterpolationTable";
 
 // Robot start (x, z) -- also the first point of every path.
 const START_X = -FIELD_LENGTH / 2 + 1;
@@ -71,7 +72,7 @@ export class Level8 implements Level {
 
   private balls = new Set<Ball>();
   private ballsByCollider: Map<number, Ball> = new Map<number, Ball>();
-  private table!: Table;
+  private table!: InterpolationTable;
 
   // Last commanded (slew-limited) velocities
   private cmdVx = 0;
@@ -81,27 +82,11 @@ export class Level8 implements Level {
   setup(game: Game) {
     this.game = game;
 
-    // Setup Table UI (Load from storage or use a robust default fallback)
-    const storedTable = this.game.getStorage(2);
-    const map = new Map<number, number>();
-    if (storedTable && Array.isArray(storedTable)) {
-      for (const pair of storedTable) {
-        if (
-          Array.isArray(pair) &&
-          pair.length === 2 &&
-          Number.isFinite(pair[0])
-        ) {
-          map.set(Math.round(pair[0] * 100) / 100, pair[1]);
-        }
-      }
-    }
-    // Fallback default table if no previous data exists
-    if (map.size === 0) {
-      map.set(1.5, 2500);
-      map.set(3.0, 3500);
-      map.set(5.0, 4800);
-    }
-    this.table = new Table(["Distance", "RPM"], map);
+    this.table = InterpolationTable.fromStorage(this.game.getStorage('rpmTable'), [
+      [1.5, 2500],
+      [3.0, 3500],
+      [5.0, 4800],
+    ]);
 
     // Floor, hubs, obstacles
     const floor = new Floor(true);
@@ -216,7 +201,7 @@ export class Level8 implements Level {
       const distance = this.robot.getDistanceToHub(this.hub.group.position);
       const targetRpm = this.table.getInterpolatedValue(distance);
       const start = this.robot.getMuzzlePosition();
-      const speed = this.robot.rpmToLaunchSpeed(targetRpm);
+      const speed = this.robot.rpmToLaunchSpeed(targetRpm.value);
       const fwd = this.robot.getForward();
       const angle = THREE.MathUtils.degToRad(this.robot.getShotAngle(this.hub));
       const horizontal = Math.cos(angle) * speed;

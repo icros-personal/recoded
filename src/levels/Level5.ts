@@ -15,6 +15,7 @@ import { KeyboardListener } from "../core/KeyboardListener";
 import { Bump } from "../entities/Bump";
 import { Trench } from "../entities/Trench";
 import { FloorObstacles } from "../entities/FloorObstacles";
+import { InterpolationTable } from "../core/InterpolationTable";
 
 const INSTRUCTIONS =
   "Drive with WASD, rotate with J/L, and press K to shoot. Score as many of your 10 balls as you can!";
@@ -59,6 +60,13 @@ export class Level5 implements Level {
   private keyboardListener!: KeyboardListener;
 
   setup(game: Game) {
+    const data = InterpolationTable.fromStorage(this.game.getStorage('rpmTable'), [
+      [1.5, 2500],
+      [3.0, 3500],
+      [5.0, 4800],
+    ]);
+    this.table = new Table(["Distance", "RPM"], data.values());
+
     this.game = game;
 
     this.distanceLine = new DistanceLine(
@@ -81,28 +89,6 @@ export class Level5 implements Level {
         },
       );
     }
-
-    // Setup Table UI (Load from storage or use a robust default fallback)
-    const storedTable = this.game.getStorage(2);
-    const map = new Map<number, number>();
-    if (storedTable && Array.isArray(storedTable)) {
-      for (const pair of storedTable) {
-        if (
-          Array.isArray(pair) &&
-          pair.length === 2 &&
-          Number.isFinite(pair[0])
-        ) {
-          map.set(Math.round(pair[0] * 100) / 100, pair[1]);
-        }
-      }
-    }
-    // Fallback default table if no previous data exists
-    if (map.size === 0) {
-      map.set(1.5, 2500);
-      map.set(3.0, 3500);
-      map.set(5.0, 4800);
-    }
-    this.table = new Table(["Distance", "RPM"], map);
 
     const controlsContainer = this.game.ui.getControlsContainer();
     controlsContainer.insertBefore(
@@ -261,6 +247,7 @@ export class Level5 implements Level {
       this.ballsRemaining <= 0 ||
       this.successfulShots >= this.levelRequirement
     ) {
+      this.game.setStorage('rpmTable', this.table.toStorage());
       const level = levels[this.info.index]?.();
       if (level) this.game.loadLevel(level);
     } else {

@@ -116,7 +116,7 @@ export class Level2 extends SimpleBaseLevel {
         this.game.ui.setAction("NEXT DISTANCE");
       } else {
         this.phase = "done";
-        this.game.setStorage(2, this.shotTable);
+        this.game.setStorage('rpmTable', this.shotTable);
         this.game.ui.setStatus("✓ Shot speeds recorded!", "success");
         this.game.ui.setAction("NEXT LEVEL");
       }

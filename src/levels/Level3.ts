@@ -54,7 +54,7 @@ export class Level3 extends SimpleBaseLevel {
   private shotTableMap = new Map<number, number>();
 
   protected override initEntities() {
-    const level2Table = this.game.getStorage(2);
+    const level2Table = this.game.getStorage('rpmTable');
     if (level2Table && Array.isArray(level2Table)) {
       for (const pair of level2Table) {
         if (
@@ -167,7 +167,7 @@ export class Level3 extends SimpleBaseLevel {
         );
         if (this.successfulBursts >= REQUIRED_SUCCESSFUL_BURSTS) {
           this.phase = 'done';
-          this.game.setStorage(this.info.index, Array.from(this.shotTableMap.entries()));
+          this.game.setStorage('rpmTable', Array.from(this.shotTableMap.entries()));
           this.game.ui.setStatus(`✓ Level Complete! Passed ${REQUIRED_SUCCESSFUL_BURSTS} successful bursts.`,
             "success",
           );
