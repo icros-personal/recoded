@@ -4,6 +4,7 @@ import { Ball } from "./Ball";
 import type { World } from "@dimforge/rapier3d-compat";
 import RAPIER from "@dimforge/rapier3d-compat";
 import { CollisionGroups } from "./CollisionGroups";
+import type { Hub } from "./Hub";
 
 export class Robot extends SimpleRobot {
   static readonly DEFAULT_MAX_CAPACITY = 50;
@@ -184,5 +185,13 @@ export class Robot extends SimpleRobot {
 
   getIntakeCollider(): RAPIER.Collider {
     return this.intakeCollider;
+  }
+
+  getShotAngle(hub: Hub): number {
+    const distance = this.getDistanceToHub(hub.group.position);
+    if (distance >= 3) return 60;
+    if (distance <= 1) return 80;
+    const t = (distance - 1) / (3 - 1);
+    return 80 + t * (60 - 80);
   }
 }

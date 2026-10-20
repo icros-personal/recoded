@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { lerpAngle, wrapAngle, type PathSample } from "../core/PathFollower";
+import { headingToward, lerpAngle, wrapAngle, type PathSample, type PathStop } from "../core/PathFollower";
 
 /**
  * Interactive waypoint editor drawn on the field (y = 0 plane).
@@ -25,14 +25,31 @@ export interface StartPose {
   heading: number;
 }
 
+export interface ShootingOptions {
+    aimTarget: (x: number, z: number) => { x: number; z: number };
+}
+
+export interface EditorOptions {
+    shooting?: ShootingOptions;
+}
+
+export interface PathPlan {
+    samples: PathSample[];
+    stops: PathStop[];
+}
+
 interface Waypoint {
   x: number;
   z: number;
   heading: number;
+  shoot: boolean;
   group: THREE.Group;
+  disc: THREE.Mesh;
+  square: THREE.Mesh;
   ring: THREE.Mesh;
   handle: THREE.Mesh;
   arrow: THREE.Group;
+  arrowParts: THREE.Mesh[];
 }
 
 type Drag =
@@ -46,6 +63,7 @@ const SAMPLE_SPACING = 0.05; // m (approximate)
 const COLOR_PATH = 0xffd400;
 const COLOR_WP = 0xffffff;
 const COLOR_SELECTED = 0x00e5ff;
+const COLOR_SHOOT = 0xff7a1a;
 
 export class PathEditor {
   readonly group = new THREE.Group();
@@ -65,13 +83,17 @@ export class PathEditor {
   private ribbonMat = this.mat(COLOR_PATH);
   private bodyMat = this.mat(COLOR_WP);
   private selMat = this.mat(COLOR_SELECTED);
+  private shootMat = this.mat(COLOR_SHOOT);
   private geos: THREE.BufferGeometry[] = [];
 
   private discGeo = this.track(
     new THREE.CircleGeometry(0.18, 24).rotateX(-Math.PI / 2),
   );
+  private squareGeo = this.track(
+    new THREE.PlaneGeometry(0.36, 0.36).rotateX(-Math.PI / 2),
+  );
   private ringGeo = this.track(
-    new THREE.RingGeometry(0.24, 0.3, 32).rotateX(-Math.PI / 2),
+    new THREE.RingGeometry(0.26, 0.32, 32).rotateX(-Math.PI / 2),
   );
   private handleGeo = this.track(
     new THREE.CircleGeometry(0.14, 20).rotateX(-Math.PI / 2),
@@ -82,13 +104,16 @@ export class PathEditor {
   private tipGeo = this.track(this.makeTip());
 
   private readonly prevTouchAction: string;
+  private readonly shooting: ShootingOptions | null;
 
   constructor(
     private readonly dom: HTMLElement,
     private readonly getCamera: () => THREE.Camera,
     private readonly start: StartPose,
     private readonly bounds: { halfLength: number; halfWidth: number },
+    options: EditorOptions = {},
   ) {
+    this.shooting = options.shooting ?? null;
     this.prevTouchAction = dom.style.touchAction;
     dom.style.touchAction = "none"; // let us own touch gestures on the canvas
 
@@ -126,6 +151,14 @@ export class PathEditor {
     return this.selected !== null;
   }
 
+  get shootingEnabled() {
+    return this.shooting !== null;
+  }
+
+  get selectedShoots() {
+    return this.shootingEnabled && !!this.selected?.shoot;
+  }
+
   setEnabled(enabled: boolean) {
     this.enabled = enabled;
     if (!enabled) {
@@ -136,6 +169,14 @@ export class PathEditor {
     // In run mode, hide the editing UI but keep the curve visible.
     for (const w of this.waypoints) w.group.visible = enabled;
     this.dom.style.touchAction = enabled ? "none" : this.prevTouchAction;
+  }
+
+  toggleSelectedShoot() {
+    const wp = this.selected;
+    if (!this.shooting || !wp) return;
+    this.setShoot(wp, !wp.shoot);
+    this.rebuildCurve();
+    this.onChange?.();
   }
 
   deleteSelected() {
@@ -161,8 +202,14 @@ export class PathEditor {
    * cumulative arc length and an interpolated heading.
    */
   getSamples(): PathSample[] {
+    return this.getPlan().samples;
+  }
+
+  getPlan(): PathPlan {
     const pts = [this.start, ...this.waypoints];
-    if (pts.length < 2) return [];
+    const samples: PathSample[] = [];
+    const stops: PathStop[] = [];
+    if (pts.length < 2) return {samples, stops};
 
     const curve = new THREE.CatmullRomCurve3(
       pts.map((p) => new THREE.Vector3(p.x, 0, p.z)),
@@ -170,7 +217,6 @@ export class PathEditor {
       "centripetal",
     );
     const segs = pts.length - 1;
-    const out: PathSample[] = [];
     let s = 0;
 
     for (let seg = 0; seg < segs; seg++) {
@@ -182,18 +228,27 @@ export class PathEditor {
       for (let k = seg === 0 ? 0 : 1; k <= n; k++) {
         const f = k / n;
         const p = curve.getPoint((seg + f) / segs, this.tmp);
-        const prev = out[out.length - 1];
+        const prev = samples[samples.length - 1];
         if (prev) s += Math.hypot(p.x - prev.x, p.z - prev.z);
         const smooth = f * f * (3 - 2 * f);
-        out.push({
+        samples.push({
           x: p.x,
           z: p.z,
           s,
           heading: lerpAngle(pts[seg]!.heading, pts[seg + 1]!.heading, smooth),
         });
       }
+
+      const wp = this.waypoints[seg];
+      if (this.shooting && wp?.shoot) {
+        stops.push({
+            index: samples.length - 1,
+            target: this.shooting.aimTarget(wp.x, wp.z),
+        });
+      }
     }
-    return out;
+    
+    return { samples, stops};
   }
 
   dispose() {
@@ -209,6 +264,7 @@ export class PathEditor {
     this.ribbonMat.dispose();
     this.bodyMat.dispose();
     this.selMat.dispose();
+    this.shootMat.dispose();
     this.group.removeFromParent();
   }
 
@@ -225,7 +281,7 @@ export class PathEditor {
 
     // 1. Heading handle of the selected waypoint
     const sel = this.selected;
-    if (sel) {
+    if (sel && !sel.shoot) {
       const hx = sel.x + Math.cos(sel.heading) * HANDLE_DIST;
       const hz = sel.z - Math.sin(sel.heading) * HANDLE_DIST;
       if (Math.hypot(w.x - hx, w.z - hz) < hitR) {
@@ -309,7 +365,6 @@ export class PathEditor {
       this.deleteSelected();
     } else if (e.key === "Escape") {
       this.select(null);
-      this.onChange?.();
     }
   };
 
@@ -350,11 +405,30 @@ export class PathEditor {
     wp.x = THREE.MathUtils.clamp(x, -this.bounds.halfLength, this.bounds.halfLength);
     wp.z = THREE.MathUtils.clamp(z, -this.bounds.halfWidth, this.bounds.halfWidth);
     wp.group.position.set(wp.x, Y, wp.z);
+    if (wp.shoot) {
+        this.updateAim(wp);
+    }
   }
 
   private setHeading(wp: Waypoint, h: number) {
     wp.heading = wrapAngle(h);
     wp.arrow.rotation.y = wp.heading;
+  }
+
+  private updateAim(wp: Waypoint) {
+    if (!this.shooting) return;
+    const t = this.shooting.aimTarget(wp.x, wp.z);
+    this.setHeading(wp, headingToward(wp.x, wp.z, t.x, t.z));
+  }
+
+  private setShoot(wp: Waypoint, shoot: boolean) {
+    wp.shoot = shoot;
+    wp.disc.visible = !shoot;
+    wp.square.visible = shoot;
+    const m = shoot ? this.shootMat : this.bodyMat;
+    for (const part of wp.arrowParts) part.material = m;
+    wp.handle.visible = !shoot && this.selected === wp;
+    if (shoot) this.updateAim(wp);
   }
 
   private select(wp: Waypoint | null) {
@@ -365,7 +439,7 @@ export class PathEditor {
     this.selected = wp;
     if (wp) {
       wp.ring.visible = true;
-      wp.handle.visible = true;
+      wp.handle.visible = !wp.shoot;
     }
     this.onChange?.();
   }
@@ -377,14 +451,15 @@ export class PathEditor {
   private makeWaypoint(heading: number): Waypoint {
     const group = new THREE.Group();
     const disc = this.mesh(this.discGeo, this.bodyMat, 11);
+    const square = this.mesh(this.squareGeo, this.shootMat, 11);
+    square.visible = false;
     const ring = this.mesh(this.ringGeo, this.selMat, 11);
     ring.visible = false;
 
+    const shaft = this.mesh(this.shaftGeo, this.bodyMat, 11);
+    const tip = this.mesh(this.tipGeo, this.bodyMat, 11);
     const arrow = new THREE.Group();
-    arrow.add(
-      this.mesh(this.shaftGeo, this.bodyMat, 11),
-      this.mesh(this.tipGeo, this.bodyMat, 11),
-    );
+    arrow.add(shaft, tip);
     const handle = this.mesh(this.handleGeo, this.selMat, 12);
     handle.position.x = HANDLE_DIST;
     handle.visible = false;
@@ -392,7 +467,7 @@ export class PathEditor {
     arrow.rotation.y = heading;
 
     group.add(disc, ring, arrow);
-    return { x: 0, z: 0, heading, group, ring, handle, arrow };
+    return { x: 0, z: 0, heading, shoot: false, group, disc, square, ring, handle, arrow, arrowParts: [shaft, tip] };
   }
 
   private rebuildCurve() {

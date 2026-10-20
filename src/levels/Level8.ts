@@ -14,6 +14,7 @@ import { PathFollower, wrapAngle } from "../core/PathFollower";
 import { inAllianceZone, inNeutralZone } from "../core/zoneChecks";
 import { Robot } from "../entities/Robot";
 import { Ball } from "../entities/Ball";
+import { Table } from "../ui/Table";
 
 // Robot start (x, z) -- also the first point of every path.
 const START_X = -FIELD_LENGTH / 2 + 1;
@@ -68,8 +69,9 @@ export class Level8 implements Level {
   private visitedMiddle = false;
   private completed = false;
 
-  private balls: Ball[] = [];
+  private balls = new Set<Ball>();
   private ballsByCollider: Map<number, Ball> = new Map<number, Ball>();
+  private table!: Table;
 
   // Last commanded (slew-limited) velocities
   private cmdVx = 0;
@@ -78,6 +80,28 @@ export class Level8 implements Level {
 
   setup(game: Game) {
     this.game = game;
+
+    // Setup Table UI (Load from storage or use a robust default fallback)
+    const storedTable = this.game.getStorage(2);
+    const map = new Map<number, number>();
+    if (storedTable && Array.isArray(storedTable)) {
+      for (const pair of storedTable) {
+        if (
+          Array.isArray(pair) &&
+          pair.length === 2 &&
+          Number.isFinite(pair[0])
+        ) {
+          map.set(Math.round(pair[0] * 100) / 100, pair[1]);
+        }
+      }
+    }
+    // Fallback default table if no previous data exists
+    if (map.size === 0) {
+      map.set(1.5, 2500);
+      map.set(3.0, 3500);
+      map.set(5.0, 4800);
+    }
+    this.table = new Table(["Distance", "RPM"], map);
 
     // Floor, hubs, obstacles
     const floor = new Floor(true);
@@ -111,6 +135,15 @@ export class Level8 implements Level {
       () => game.camera, // <-- adjust if Game exposes its active camera differently
       { x: START_X, z: START_Z, heading: this.startHeading },
       { halfLength: FIELD_LENGTH / 2, halfWidth: FIELD_WIDTH / 2 },
+      {shooting: {aimTarget: (x, z) => {
+        if (x < Hub.HUB_X) {
+          return {x: Hub.HUB_X, z: 0};
+        }
+        if (z < 0) {
+          return {x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: -FIELD_WIDTH / 2};
+        }
+        return {x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: FIELD_WIDTH / 2};
+      }}}
     );
     this.editor.onChange = () => this.refreshPanel();
     game.stage.add(this.editor.group);
@@ -135,14 +168,23 @@ export class Level8 implements Level {
   // Mode switching
   // ------------------------------------------------------------------------
 
-  private resetField() {
-    for (const ball of this.balls) {
-      this.game.stage.remove(ball.mesh);
-      ball.remove(this.game.world);
-    }
+  private addBall(ball: Ball) {
+    this.balls.add(ball);
+    this.ballsByCollider.set(ball.getCollider()!.handle, ball);
+    this.game.stage.add(ball.mesh);
+  }
 
-    this.ballsByCollider.clear();
-    this.balls = [];
+  private removeBall(ball: Ball) {
+    if (!this.balls.delete(ball)) return;
+    this.ballsByCollider.delete(ball.getCollider()!.handle);
+    ball.remove(this.game.world);
+    ball.mesh.removeFromParent();
+  }
+
+  private resetField() {
+    for (const ball of [...this.balls]) {
+      this.removeBall(ball);
+    }
 
     for (let ix = 0; ix < 12; ix++) {
       for (let iz = 0; iz < 30; iz++) {
@@ -151,18 +193,13 @@ export class Level8 implements Level {
         const z = (iz - (30 - 1) / 2) * Ball.RADIUS * 2;
         ball.place({x, y: Ball.RADIUS, z});
         ball.addColliders(this.game.world);
-        this.ballsByCollider.set(ball.getCollider()!.handle, ball);
-        this.balls.push(ball);
+        this.addBall(ball);
       }
     }
-
-    this.game.stage.add(
-      ...this.balls.map(ball => ball.mesh),
-    );
   }
 
   private startRun() {
-    const samples = this.editor.getSamples();
+    const { samples, stops } = this.editor.getPlan();
     if (samples.length < 2) {
       return;
     }
@@ -170,7 +207,32 @@ export class Level8 implements Level {
     this.resetRobot();
     this.visitedMiddle = false;
     this.completed = false;
-    this.follower = new PathFollower(samples);
+    this.follower = new PathFollower(samples, stops);
+    this.follower.onFire = (pose, stop) => {
+      if (this.robot.getBallCount() <= 0) {
+        return true;
+      }
+
+      const distance = this.robot.getDistanceToHub(this.hub.group.position);
+      const targetRpm = this.table.getInterpolatedValue(distance);
+      const start = this.robot.getMuzzlePosition();
+      const speed = this.robot.rpmToLaunchSpeed(targetRpm);
+      const fwd = this.robot.getForward();
+      const angle = THREE.MathUtils.degToRad(this.robot.getShotAngle(this.hub));
+      const horizontal = Math.cos(angle) * speed;
+
+      const ball = new Ball('field');
+      ball.place(start);
+      this.game.stage.add(ball.mesh);
+      ball.launch(this.game.world, start, {
+        x: fwd.x * horizontal,
+        y: Math.sin(angle) * speed,
+        z: fwd.z * horizontal,
+      });
+      this.addBall(ball);
+      this.robot.removeBall();
+      return false;
+    }
     this.mode = "run";
     this.editor.setEnabled(false);
     this.game.setCamera(this.driverStationCamera);
@@ -248,7 +310,7 @@ export class Level8 implements Level {
         z: pos.z,
         heading: this.yawOf(this.robot.group.quaternion),
       };
-      const cmd = this.follower.update(pose);
+      const cmd = this.follower.update(pose, dt);
 
       this.cmdVx = this.approach(this.cmdVx, cmd.vx, MAX_LIN_ACCEL * dt);
       this.cmdVz = this.approach(this.cmdVz, cmd.vz, MAX_LIN_ACCEL * dt);
@@ -272,9 +334,7 @@ export class Level8 implements Level {
 
     for (const ball of collected) {
       if (this.robot.getBallCount() < this.robot.getMaxCapacity()) {
-        this.ballsByCollider.delete(ball.getCollider()!.handle);
-        ball.remove(this.game.world);
-        ball.mesh.parent?.remove(ball.mesh);
+        this.removeBall(ball);
         this.robot.addBall();
       }
     }
@@ -383,6 +443,14 @@ export class Level8 implements Level {
     this.lessonPanel.setResult("", false);
     this.lessonPanel.setButtons([
       {
+        label: this.editor.selectedShoots ? 'Shooting: on': 'Shoot here',
+        onClick: () => {
+          this.editor.toggleSelectedShoot();
+          this.refreshPanel();
+        },
+        disabled: !this.editor.hasSelection,
+      },
+      {
         label: "Delete waypoint",
         onClick: () => {
           this.editor.deleteSelected();
@@ -419,5 +487,8 @@ export class Level8 implements Level {
   dispose() {
     this.editor.dispose();
     this.lessonPanel.dispose();
+    for (const b of [...this.balls]) {
+      this.removeBall(b);
+    }
   }
 }

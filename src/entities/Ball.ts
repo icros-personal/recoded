@@ -15,10 +15,13 @@ export class Ball {
   private body: RAPIER.RigidBody | null = null;
   private collider: RAPIER.Collider | null = null;
 
+  static GEOMETRY: THREE.SphereGeometry = new THREE.SphereGeometry(Ball.RADIUS, 24, 16);
+  static MATERIAL: THREE.MeshStandardMaterial = new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.7 });
+
   constructor(private mode: BallMode = 'simple') {
     this.mesh = new THREE.Mesh(
-      new THREE.SphereGeometry(Ball.RADIUS, 24, 16),
-      new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.7 }),
+      Ball.GEOMETRY,
+      Ball.MATERIAL,
     );
     this.mesh.castShadow = true;
   }
