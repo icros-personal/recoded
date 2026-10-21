@@ -7,6 +7,7 @@ import { Level5 } from './Level5';
 import { Level6 } from './Level6';
 import { Level7 } from './Level7';
 import { Level8 } from './Level8';
+import { Level9 } from './Level9';
 
 /** Level factories, in play order. Add new levels here. */
 export const levels: Array<() => Level> = [
@@ -18,4 +19,5 @@ export const levels: Array<() => Level> = [
   () => new Level6(),
   () => new Level7(),
   () => new Level8(),
+  () => new Level9(),
 ];
