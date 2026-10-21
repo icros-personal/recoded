@@ -40,13 +40,11 @@ interface PendingRelease {
 }
 
 export class Level9 implements Level {
-  private levelRequirement = 50;
-
   readonly info: LevelInfo = {
     index: 9,
     subtitle: "How did we get here?",
     instructions:
-      "Drive with WASD, rotate with J/L, and press K to shoot. Adjust your shot table and Kp in settings.",
+      "Drive with WASD, rotate with J/L, and press K to shoot. Adjust your shot table and Kp in settings. Cycle camera views with C.",
     targetLabel: "",
     modal: {
       title: "Just for Fun",
@@ -62,6 +60,27 @@ export class Level9 implements Level {
     target: [0, 1.0, 0],
     fov: 70,
   };
+  private readonly driverStationCamera2: CameraSpec = {
+    type: "perspective",
+    position: [-FIELD_LENGTH / 2 - 1, 1.7, -FIELD_WIDTH / 2 + 2.25],
+    target: [0, 1.0, 0],
+    fov: 70,
+  };
+  private readonly driverStationCamera3: CameraSpec = {
+    type: "perspective",
+    position: [-FIELD_LENGTH / 2 - 1, 1.7, FIELD_WIDTH / 2 - 1.5],
+    target: [0, 1.0, 0],
+    fov: 70,
+  };
+  private readonly fieldCam: CameraSpec = {
+    type: "perspective",
+    position: [0, 8.0, -FIELD_WIDTH * 1.2],
+    target: [0, 1.0, 0],
+    fov: 70,
+  };
+
+  private cameras = [this.driverStationCamera, this.driverStationCamera2, this.driverStationCamera3, this.fieldCam];
+  private cameraIndex = 0;
 
   private game!: Game;
   private robot!: Robot;
@@ -126,17 +145,23 @@ export class Level9 implements Level {
       obstacles.group,
     );
 
-    this.game.setCamera(this.driverStationCamera);
+    this.game.setCamera(this.cameras[this.cameraIndex]!);
     this.game.ui.setAction("RESET", true);
 
     this.keyboardListener = new KeyboardListener((e, isDown) => {
-      if (e.key.toLowerCase() === "k") {
-        this.handleShootInput(isDown);
+      if (e.key.toLowerCase() === "c" && isDown) {
+        this.changeCamera();
       }
     });
   }
 
-  private handleShootInput(isDown: boolean) {}
+  private changeCamera() {
+    this.cameraIndex++;
+    if (this.cameraIndex >= this.cameras.length) {
+      this.cameraIndex = 0;
+    }
+    this.game.setCamera(this.cameras[this.cameraIndex]!);
+  }
 
   private aimTarget(x: number, z: number): { x: number; z: number } {
     if (x < Hub.HUB_X) {
