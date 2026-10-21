@@ -75,6 +75,7 @@ export abstract class SimpleBaseLevel implements Level {
 
   protected recordSuccessfulShot() {
     this.successfulShots++;
+    this.game.achievements.add('shots', 1);
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
   }
 

@@ -221,6 +221,7 @@ export class Level7 implements Level {
         MAX_ANG_ACCEL * dt,
       );
       this.drive(this.cmdVx, this.cmdVz, this.cmdOmega);
+      this.game.achievements.add('path-followed', Math.hypot(this.cmdVx, this.cmdVz) * dt);
     }
 
     this.game.stepPhysics(dt);

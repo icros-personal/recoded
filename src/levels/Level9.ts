@@ -400,6 +400,9 @@ export class Level9 implements Level {
       dt,
     );
 
+    const velocity = this.robot.getVelocity();
+    this.game.achievements.add('distance-driven', Math.hypot(velocity.x, velocity.z) * dt);
+
     this.game.stepPhysics(dt);
 
     const collected: Ball[] = [];
@@ -417,6 +420,7 @@ export class Level9 implements Level {
       if (this.robot.getBallCount() < this.robot.getMaxCapacity()) {
         this.removeBall(ball);
         this.robot.addBall();
+        this.game.achievements.add('fuel', 1);
       }
     }
 
@@ -434,6 +438,7 @@ export class Level9 implements Level {
 
     for (const ball of collected) {
       this.successfulShots++;
+      this.game.achievements.add('shots', 1);
       this.lastScored = performance.now();
       this.removeBall(ball);
       this.pendingReleases.push({ ball, timer: 0.5 });

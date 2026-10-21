@@ -41,17 +41,21 @@ export class GameUI {
   private readonly actionButton: HTMLButtonElement;
   private readonly statusEl: HTMLDivElement;
   private modalEl: HTMLDivElement | null = null;
+  private readonly achievementsButton: HTMLButtonElement;
 
   private readonly inputs = new Map<string, HTMLInputElement>();
   private actionHandler: (() => void) | null = null;
-  private settingsHandler: (() => void) | null = null;
+  private settingsHandler: ((achievements: boolean) => void) | null = null;
 
   constructor(root: HTMLElement) {
     root.innerHTML = `
       <main class="game">
         <header>
           <div><h1>FRC Recoded</h1><div class="subtitle"></div></div>
+          <div>
+          <button id="achievements" type="button">Achievements</button>
           <button id="settings" type="button">Settings</button>
+          </div>
         </header>
         <div id="viewport" class="viewport" aria-label="Robot simulation"><div class="target-label"></div></div>
         <section class="level"></section>
@@ -68,9 +72,11 @@ export class GameUI {
     this.controlsEl = root.querySelector<HTMLElement>('.controls')!;
     this.actionButton = root.querySelector<HTMLButtonElement>('#fire')!;
     this.statusEl = root.querySelector<HTMLDivElement>('#status')!;
+    this.achievementsButton = root.querySelector<HTMLButtonElement>('#achievements')!;
 
     this.actionButton.addEventListener('click', () => this.actionHandler?.());
-    root.querySelector<HTMLButtonElement>('#settings')?.addEventListener('click', () => this.settingsHandler?.());
+    root.querySelector<HTMLButtonElement>('#settings')?.addEventListener('click', () => this.settingsHandler?.(false));
+    this.achievementsButton.addEventListener('click', () => this.settingsHandler?.(true));
   }
 
   /** Swap the header text, overlay label and control inputs for a new level. */
@@ -83,6 +89,12 @@ export class GameUI {
 
     if (info.modal) {
       this.showModal(info.modal.title, info.modal.body);
+    }
+
+    if (info.index < 9) {
+      this.achievementsButton.style.display = 'none';
+    } else {
+      this.achievementsButton.style.display = 'inline';
     }
   }
 
@@ -201,7 +213,7 @@ export class GameUI {
     this.actionHandler = handler;
   }
 
-  onSettings(handler: (() => void) | null) {
+  onSettings(handler: ((achievements: boolean) => void) | null) {
     this.settingsHandler = handler;
   }
 }

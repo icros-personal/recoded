@@ -349,6 +349,7 @@ export class Level8 implements Level {
         MAX_ANG_ACCEL * dt,
       );
       this.drive(this.cmdVx, this.cmdVz, this.cmdOmega);
+      this.game.achievements.add('path-followed', Math.hypot(this.cmdVx, this.cmdVz) * dt);
     }
 
     this.game.stepPhysics(dt);
@@ -368,6 +369,7 @@ export class Level8 implements Level {
       if (this.robot.getBallCount() < this.robot.getMaxCapacity()) {
         this.removeBall(ball);
         this.robot.addBall();
+        this.game.achievements.add('fuel', 1);
       }
     }
 
@@ -385,6 +387,7 @@ export class Level8 implements Level {
 
     for (const ball of collected) {
       this.successfulShots++;
+      this.game.achievements.add('shots', 1);
       this.lastScored = performance.now();
       this.removeBall(ball);
       this.pendingReleases.push({ ball, timer: 0.5 });

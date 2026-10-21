@@ -11,6 +11,7 @@ import type { GameUI } from "./ui";
 import type { Level } from "../levels/Level";
 import { InterpolationTable } from "./InterpolationTable";
 import { SettingsModal } from "../ui/SettingsModal";
+import { Achievements } from "../ui/Achievements";
 
 /**
  * Runtime shared by every level: renderer, camera, lights, physics world and
@@ -25,6 +26,7 @@ export class Game {
   readonly scene = new THREE.Scene();
   readonly ui: GameUI;
   readonly settingsModal: SettingsModal;
+  readonly achievements: Achievements;
 
   /**
    * The active camera. It is replaced on every level load (and by setCamera),
@@ -45,9 +47,10 @@ export class Game {
 
   constructor(ui: GameUI) {
     this.ui = ui;
-    this.ui.onSettings(() => this.settingsModal.show());
+    this.ui.onSettings((achievements: boolean) => this.settingsModal.show(achievements));
     this.camera = createCamera(DEFAULT_CAMERA, this.aspect());
     this.settingsModal = new SettingsModal(this);
+    this.achievements = new Achievements();
 
     this.scene.background = new THREE.Color(0xbfd7ea);
 

@@ -149,6 +149,7 @@ export class Level5 implements Level {
 
     if (event === "scored") {
       this.successfulShots++;
+      this.game.achievements.add('shots', 1);
       this.game.ui.setStatus("✓ Scored!", "success");
     } else if (event === "round_complete") {
       const passed = this.successfulShots >= this.levelRequirement;
@@ -214,6 +215,9 @@ export class Level5 implements Level {
       turnSpeed,
       dt,
     );
+
+    const velocity = this.robot.getVelocity();
+    this.game.achievements.add('distance-driven', Math.hypot(velocity.x, velocity.z) * dt);
 
     const distance = this.robot.getDistanceToHub(this.hub.group.position);
     const targetRpm = this.game.getRpmTable().getInterpolatedValue(distance);
