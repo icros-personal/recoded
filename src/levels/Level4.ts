@@ -62,10 +62,11 @@ export class Level4 extends SimpleBaseLevel {
 
   private phase: Phase = "ready";
   private table: Table | null = null;
+  private tableUnsubscribe?: () => void;
 
   protected override initEntities() {
-    const data = InterpolationTable.fromStorage(this.game.getStorage('rpmTable'));
-    this.table = new Table(["Distance", "RPM"], data.values());
+    this.table = new Table(["Distance", "RPM"], this.game.getRpmTable());
+    this.tableUnsubscribe = this.table.onChange(() => this.game.saveRpmTable());
     
     const controlsContainer = this.game.ui.getControlsContainer();
     controlsContainer.insertBefore(
@@ -226,6 +227,7 @@ export class Level4 extends SimpleBaseLevel {
   override dispose() {
     super.dispose();
     this.rpmGraph.dispose();
+    this.tableUnsubscribe?.();
     this.table?.dispose?.();
   }
 }

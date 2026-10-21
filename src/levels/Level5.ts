@@ -60,14 +60,13 @@ export class Level5 implements Level {
   private keyboardListener!: KeyboardListener;
 
   setup(game: Game) {
-    const data = InterpolationTable.fromStorage(this.game.getStorage('rpmTable'), [
+    this.game = game;
+
+    this.game.initializeRpmTableIfEmpty([
       [1.5, 2500],
       [3.0, 3500],
       [5.0, 4800],
     ]);
-    this.table = new Table(["Distance", "RPM"], data.values());
-
-    this.game = game;
 
     this.distanceLine = new DistanceLine(
       this.game.renderer.domElement.parentElement!,
@@ -89,12 +88,6 @@ export class Level5 implements Level {
         },
       );
     }
-
-    const controlsContainer = this.game.ui.getControlsContainer();
-    controlsContainer.insertBefore(
-      this.table.getRoot(),
-      controlsContainer.firstElementChild,
-    );
 
     // Setup Floor, Walls, and Hubs
     const floor = new Floor(true); // Ensure Floor includes boundary walls
@@ -224,11 +217,11 @@ export class Level5 implements Level {
     );
 
     const distance = this.robot.getDistanceToHub(this.hub.group.position);
-    const targetRpm = this.table.getInterpolatedValue(distance);
+    const targetRpm = this.game.getRpmTable().getInterpolatedValue(distance);
 
     this.shooter.update(
       dt,
-      targetRpm,
+      targetRpm.value,
       () => this.getShotAngle(),
       (event) => this.handleShotEvent(event),
     );
@@ -247,7 +240,7 @@ export class Level5 implements Level {
       this.ballsRemaining <= 0 ||
       this.successfulShots >= this.levelRequirement
     ) {
-      this.game.setStorage('rpmTable', this.table.toStorage());
+      this.game.saveRpmTable();
       const level = levels[this.info.index]?.();
       if (level) this.game.loadLevel(level);
     } else {
@@ -273,6 +266,5 @@ export class Level5 implements Level {
     this.distanceLine.dispose();
     this.scoreOverlay.dispose();
     this.touchOverlay?.dispose();
-    this.table.dispose();
   }
 }

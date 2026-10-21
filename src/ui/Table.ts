@@ -24,8 +24,8 @@ export class Table {
   private readonly rows: Row[] = [];
   private readonly handlers: Array<(values: Map<number, number>) => void> = [];
 
-  constructor(headers: [string, string], initialValues: Map<number, number> = new Map()) {
-    this.data = new InterpolationTable(initialValues);
+  constructor(headers: [string, string], initialValues: Map<number, number> | InterpolationTable = new Map()) {
+    this.data = initialValues instanceof InterpolationTable ? initialValues : new InterpolationTable(initialValues);
 
     this.element = document.createElement('div');
     this.element.className = 'data-table';

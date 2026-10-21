@@ -9,6 +9,8 @@ import {
 } from "./Camera";
 import type { GameUI } from "./ui";
 import type { Level } from "../levels/Level";
+import { InterpolationTable } from "./InterpolationTable";
+import { SettingsModal } from "../ui/SettingsModal";
 
 /**
  * Runtime shared by every level: renderer, camera, lights, physics world and
@@ -22,6 +24,7 @@ export class Game {
   private readonly PHYSICS_TIMESTEP = 1 / 60;
   readonly scene = new THREE.Scene();
   readonly ui: GameUI;
+  readonly settingsModal: SettingsModal;
 
   /**
    * The active camera. It is replaced on every level load (and by setCamera),
@@ -35,13 +38,15 @@ export class Game {
 
   readonly renderer = new THREE.WebGLRenderer({ antialias: true });
   private storage: Record<string, unknown> = this.loadStorage();
+  private rpmTable?: InterpolationTable;
   private level: Level | null = null;
   private last = performance.now();
 
   constructor(ui: GameUI) {
     this.ui = ui;
-    this.ui.onClear(() => this.clearStorage());
+    this.ui.onSettings(() => this.settingsModal.show());
     this.camera = createCamera(DEFAULT_CAMERA, this.aspect());
+    this.settingsModal = new SettingsModal(this);
 
     this.scene.background = new THREE.Color(0xbfd7ea);
 
@@ -71,6 +76,28 @@ export class Game {
     this.ui.showLevel(level.info, level.controls);
     this.ui.onAction(() => level.onAction());
     level.setup(this);
+    this.settingsModal.load(level);
+  }
+
+  getRpmTable(): InterpolationTable {
+    if (!this.rpmTable) {
+      this.rpmTable = InterpolationTable.fromStorage(this.getStorage('rpmTable'));
+    }
+    return this.rpmTable;
+  }
+
+  initializeRpmTableIfEmpty(defaults: [number, number][]): void {
+    const table = this.getRpmTable();
+    if (table.values().size === 0) {
+      for (const [key, value] of defaults) {
+        table.set(key, value);
+      }
+    }
+    this.saveRpmTable();
+  }
+
+  saveRpmTable(): void {
+    this.setStorage('rpmTable', this.getRpmTable().toStorage());
   }
 
   /** Replace the camera. Levels can call this from setup() or later (e.g. a cutscene). */
@@ -100,7 +127,7 @@ export class Game {
     } catch (e) {
       console.warn("Failed to load storage", e);
     }
-    return [];
+    return {};
   }
 
   private saveStorage() {
@@ -119,6 +146,13 @@ export class Game {
   private aspect(): number {
     const { clientWidth: w, clientHeight: h } = this.ui.viewport;
     return w && h ? w / h : 1;
+  }
+
+  reload() {
+    const level = this.level;
+    if (level) {
+      this.loadLevel(level);
+    }
   }
 
   private unloadLevel() {

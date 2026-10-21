@@ -1,3 +1,5 @@
+import { SettingsModal } from "../ui/SettingsModal";
+
 /** Describes one numeric input a level wants to show in the control bar. */
 export interface ControlSpec {
   id: string;
@@ -42,14 +44,14 @@ export class GameUI {
 
   private readonly inputs = new Map<string, HTMLInputElement>();
   private actionHandler: (() => void) | null = null;
-  private clearHandler: (() => void) | null = null;
+  private settingsHandler: (() => void) | null = null;
 
   constructor(root: HTMLElement) {
     root.innerHTML = `
       <main class="game">
         <header>
           <div><h1>FRC Recoded</h1><div class="subtitle"></div></div>
-          <button id="clear" type="button">Reset data</button>
+          <button id="settings" type="button">Settings</button>
         </header>
         <div id="viewport" class="viewport" aria-label="Robot simulation"><div class="target-label"></div></div>
         <section class="level"></section>
@@ -68,7 +70,7 @@ export class GameUI {
     this.statusEl = root.querySelector<HTMLDivElement>('#status')!;
 
     this.actionButton.addEventListener('click', () => this.actionHandler?.());
-    root.querySelector<HTMLButtonElement>('#clear')?.addEventListener('click', () => this.clearHandler?.());
+    root.querySelector<HTMLButtonElement>('#settings')?.addEventListener('click', () => this.settingsHandler?.());
   }
 
   /** Swap the header text, overlay label and control inputs for a new level. */
@@ -199,7 +201,7 @@ export class GameUI {
     this.actionHandler = handler;
   }
 
-  onClear(handler: (() => void) | null) {
-    this.clearHandler = handler;
+  onSettings(handler: (() => void) | null) {
+    this.settingsHandler = handler;
   }
 }

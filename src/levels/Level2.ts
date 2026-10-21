@@ -44,7 +44,6 @@ export class Level2 extends SimpleBaseLevel {
   private ball!: Ball;
   private phase: Phase = "ready";
   private previousBallY = 0;
-  private shotTable: [number, number][] = [];
 
   protected override initEntities() {
     const dist = this.getNextDistance();
@@ -101,10 +100,7 @@ export class Level2 extends SimpleBaseLevel {
     }
 
     if (this.hub.isScoringCrossing(this.previousBallY, p)) {
-      this.shotTable.push([
-        this.currentDistance,
-        this.game.ui.getNumber("rpm"),
-      ]);
+      this.game.getRpmTable().set(this.currentDistance, this.game.ui.getNumber('rpm'));
       this.recordSuccessfulShot();
 
       if (this.successfulShots < this.shotRequirements) {
@@ -116,7 +112,7 @@ export class Level2 extends SimpleBaseLevel {
         this.game.ui.setAction("NEXT DISTANCE");
       } else {
         this.phase = "done";
-        this.game.setStorage('rpmTable', this.shotTable);
+        this.game.saveRpmTable();
         this.game.ui.setStatus("✓ Shot speeds recorded!", "success");
         this.game.ui.setAction("NEXT LEVEL");
       }

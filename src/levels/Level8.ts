@@ -14,8 +14,6 @@ import { PathFollower, wrapAngle } from "../core/PathFollower";
 import { inAllianceZone, inNeutralZone } from "../core/zoneChecks";
 import { Robot } from "../entities/Robot";
 import { Ball } from "../entities/Ball";
-import { Table } from "../ui/Table";
-import { InterpolationTable } from "../core/InterpolationTable";
 
 // Robot start (x, z) -- also the first point of every path.
 const START_X = -FIELD_LENGTH / 2 + 1;
@@ -72,7 +70,6 @@ export class Level8 implements Level {
 
   private balls = new Set<Ball>();
   private ballsByCollider: Map<number, Ball> = new Map<number, Ball>();
-  private table!: InterpolationTable;
 
   // Last commanded (slew-limited) velocities
   private cmdVx = 0;
@@ -82,11 +79,11 @@ export class Level8 implements Level {
   setup(game: Game) {
     this.game = game;
 
-    this.table = InterpolationTable.fromStorage(this.game.getStorage('rpmTable'), [
+    this.game.initializeRpmTableIfEmpty([
       [1.5, 2500],
       [3.0, 3500],
       [5.0, 4800],
-    ]);
+    ])
 
     // Floor, hubs, obstacles
     const floor = new Floor(true);
@@ -199,7 +196,7 @@ export class Level8 implements Level {
       }
 
       const distance = this.robot.getDistanceToHub(this.hub.group.position);
-      const targetRpm = this.table.getInterpolatedValue(distance);
+      const targetRpm = this.game.getRpmTable().getInterpolatedValue(distance);
       const start = this.robot.getMuzzlePosition();
       const speed = this.robot.rpmToLaunchSpeed(targetRpm.value);
       const fwd = this.robot.getForward();

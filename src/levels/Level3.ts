@@ -51,28 +51,14 @@ export class Level3 extends SimpleBaseLevel {
   private phase: Phase = "ready";
   private successfulShotsThisBurst = 0;
   private successfulBursts = 0;
-  private shotTableMap = new Map<number, number>();
 
   protected override initEntities() {
-    const level2Table = this.game.getStorage('rpmTable');
-    if (level2Table && Array.isArray(level2Table)) {
-      for (const pair of level2Table) {
-        if (
-          Array.isArray(pair) &&
-          pair.length === 2 &&
-          Number.isFinite(pair[0]) && Number.isFinite(pair[1])
-        ) {
-          this.shotTableMap.set(Math.round(pair[0] * 100) / 100, pair[1]);
-        }
-      }
-    }
-
     const dist = this.getNextDistance();
     const robotX = this.hub.group.position.x - dist;
     this.robot = new SimpleRobot(robotX);
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
 
-    const suggestedRpm = this.getStoredRpmForDistance(dist);
+    const suggestedRpm = this.game.getRpmTable().getClosestValue(dist);
     const input = this.game.ui
       .getControlsContainer()
       .querySelector<HTMLInputElement>("#rpm");
@@ -110,7 +96,7 @@ export class Level3 extends SimpleBaseLevel {
     this.robot.setPosition(this.hub.group.position.x - dist, 0);
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
 
-    const suggestedRpm = this.getStoredRpmForDistance(dist);
+    const suggestedRpm = this.game.getRpmTable().getClosestValue(dist);
     if (suggestedRpm) {
       const input = this.game.ui
         .getControlsContainer()
@@ -121,19 +107,6 @@ export class Level3 extends SimpleBaseLevel {
     }
 
     this.updateDistanceLine();
-  }
-
-  private getStoredRpmForDistance(dist: number): number | null {
-    let closestRpm: number | null = null;
-    let minDiff = Infinity;
-    for (const [d, rpm] of this.shotTableMap.entries()) {
-      const diff = Math.abs(d - dist);
-      if (diff < minDiff) {
-        minDiff = diff;
-        closestRpm = rpm;
-      }
-    }
-    return minDiff < 0.5 ? closestRpm : null;
   }
 
   update(dt: number) {
@@ -161,13 +134,10 @@ export class Level3 extends SimpleBaseLevel {
       this.rpmGraph.stop();
       if (this.successfulShotsThisBurst >= REQUIRED_HITS_PER_BURST) {
         this.successfulBursts++;
-        this.shotTableMap.set(
-          this.currentDistance,
-          this.game.ui.getNumber("rpm"),
-        );
+        this.game.getRpmTable().set(this.currentDistance, this.game.ui.getNumber('rpm'));
         if (this.successfulBursts >= REQUIRED_SUCCESSFUL_BURSTS) {
           this.phase = 'done';
-          this.game.setStorage('rpmTable', Array.from(this.shotTableMap.entries()));
+          this.game.saveRpmTable();
           this.game.ui.setStatus(`✓ Level Complete! Passed ${REQUIRED_SUCCESSFUL_BURSTS} successful bursts.`,
             "success",
           );

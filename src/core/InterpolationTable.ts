@@ -27,6 +27,23 @@ export class InterpolationTable {
     this.map.delete(key);
   }
 
+  clear(): void {
+    this.map.clear();
+  }
+
+  getClosestValue(key: number) {
+    let closestRpm: number | null = null;
+    let minDiff = Infinity;
+    for (const [d, rpm] of this.values()) {
+      const diff = Math.abs(d - key);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestRpm = rpm;
+      }
+    }
+    return minDiff < 0.5 ? closestRpm : null;
+  }
+
   getInterpolatedValue(key: number): InterpolationResult {
     const entries = [...this.values()];
 
