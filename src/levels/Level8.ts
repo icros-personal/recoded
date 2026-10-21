@@ -170,9 +170,9 @@ export class Level8 implements Level {
       return { x: Hub.HUB_X, z: 0 };
     }
     if (z < 0) {
-      return { x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: -FIELD_WIDTH / 2 };
+      return { x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: -FIELD_WIDTH / 4 };
     }
-    return { x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: FIELD_WIDTH / 2 };
+    return { x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: FIELD_WIDTH / 4 };
   }
 
   private addBall(ball: Ball) {

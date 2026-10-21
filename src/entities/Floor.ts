@@ -7,7 +7,7 @@ import { Trench } from './Trench';
 export const FIELD_WIDTH = 8.128; // z-direction
 export const FIELD_LENGTH = 16.459; // x-direction, meters
 const FLOOR_THICKNESS = 0.2;
-const WALL_HEIGHT = 1;
+const WALL_HEIGHT = 100;
 const WALL_THICKNESS = 0.1;
 
 export class Floor {
