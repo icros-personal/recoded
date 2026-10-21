@@ -102,6 +102,9 @@ export class Level9 implements Level {
   private totalShots = 0;
   private lastShotTime = 0;
 
+  private shotVector = new THREE.Vector3();
+  private augers: 0 | 1 | 2 = 0;
+
   private keyboardListener!: KeyboardListener;
   private touchOverlay: TouchOverlay | null = null;
 
@@ -245,7 +248,8 @@ export class Level9 implements Level {
       this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
     }
     const targetRpm = this.game.getRpmTable().getInterpolatedValue(distance);
-    const start = this.robot.getMuzzlePosition();
+    this.augers = (this.augers + 1) % 3 as typeof this.augers;
+    const start = this.robot.getMuzzlePositionFancy(this.shotVector, this.augers);
     const speed = this.robot.rpmToLaunchSpeed(targetRpm.value);
     const fwd = this.robot.getForward();
     const angle = THREE.MathUtils.degToRad(

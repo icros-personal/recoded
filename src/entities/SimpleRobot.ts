@@ -94,6 +94,20 @@ export class SimpleRobot {
     return this.group.localToWorld(target);
   }
 
+  getMuzzlePositionFancy(target = new THREE.Vector3(), mod: 0 | 1 | 2): THREE.Vector3 {
+    target.copy(this.shooter.position);
+    target.x -= Ball.RADIUS + 0.0508;
+    switch (mod) {
+      case 1:
+        target.z += Ball.RADIUS * 2;
+        break;
+      case 2:
+        target.z -= Ball.RADIUS * 2;
+        break;
+    }
+    return this.group.localToWorld(target);
+  }
+
   getDistanceToHub(hub: THREE.Vector3) {
     const muzzle = this.getMuzzlePosition();
     return Math.hypot(hub.x - muzzle.x, hub.z - muzzle.z);
