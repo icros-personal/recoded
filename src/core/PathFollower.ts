@@ -106,7 +106,7 @@ export class PathFollower {
     const sLimit = p[this.idx]!.s + this.searchWindow;
     let best = this.idx;
     let bestD2 = Infinity;
-    for (let j = this.idx; j < p.length && p[j]!.s <= sLimit; j++) {
+    for (let j = this.idx; j < goalIdx && p[j]!.s <= sLimit; j++) {
       const dx = p[j]!.x - pose.x;
       const dz = p[j]!.z - pose.z;
       const d2 = dx * dx + dz * dz;

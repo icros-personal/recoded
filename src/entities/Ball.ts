@@ -3,6 +3,7 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { FIELD_LENGTH, FIELD_WIDTH } from "./Floor";
 import { SimpleRobot } from "./SimpleRobot";
 import { CollisionGroups } from "./CollisionGroups";
+import { Hub } from "./Hub";
 
 type Vec3 = { x: number; y: number; z: number };
 type BallMode = 'simple' | 'field';
@@ -77,6 +78,12 @@ export class Ball {
   /** Park the ball (visual only) at a position. */
   place(pos: Vec3) {
     this.mesh.position.set(pos.x, pos.y, pos.z);
+  }
+
+  releaseFromHub(hubPos: Vec3, world: RAPIER.World) {
+    this.place({ x: hubPos.x + Hub.WIDTH / 2 + Ball.RADIUS * 2, y: hubPos.y + Hub.HEIGHT / 3, z: hubPos.z + Math.random() * Hub.DEPTH / 1.5 - Hub.DEPTH / 3 });
+    this.addColliders(world);
+    this.body?.setLinvel({x: 1, y: 0, z: 0}, true);
   }
 
   launch(world: RAPIER.World, pos: Vec3, velocity: Vec3) {

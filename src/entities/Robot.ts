@@ -189,6 +189,10 @@ export class Robot extends SimpleRobot {
 
   getShotAngle(hub: Hub): number {
     const distance = this.getDistanceToHub(hub.group.position);
+    return this.getShotAngleForDistance(distance);
+  }
+
+  getShotAngleForDistance(distance: number): number {
     if (distance >= 3) return 60;
     if (distance <= 1) return 80;
     const t = (distance - 1) / (3 - 1);

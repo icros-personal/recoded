@@ -25,14 +25,18 @@ const MAX_ANG_ACCEL = 20; // rad/s^2
 
 type Mode = "design" | "run";
 
+interface PendingRelease {
+  ball: Ball;
+  timer: number; // seconds until release
+}
+
 export class Level8 implements Level {
   private levelRequirement = 50;
 
   readonly info: LevelInfo = {
     index: 8,
     subtitle: "Putting It All Together",
-    instructions:
-      `Plan an auto that scores at least ${this.levelRequirement} points.`,
+    instructions: `Plan an auto that scores at least ${this.levelRequirement} points.`,
     targetLabel: "",
     modal: {
       title: "Full Auto Mode",
@@ -73,6 +77,7 @@ export class Level8 implements Level {
 
   private balls = new Set<Ball>();
   private ballsByCollider: Map<number, Ball> = new Map<number, Ball>();
+  private pendingReleases: PendingRelease[] = [];
 
   // Last commanded (slew-limited) velocities
   private cmdVx = 0;
@@ -89,7 +94,7 @@ export class Level8 implements Level {
       [1.5, 2500],
       [3.0, 3500],
       [5.0, 4800],
-    ])
+    ]);
 
     this.scoreOverlay = new ScoreOverlay(
       this.game.renderer.domElement.parentElement!,
@@ -128,15 +133,13 @@ export class Level8 implements Level {
       () => game.camera, // <-- adjust if Game exposes its active camera differently
       { x: START_X, z: START_Z, heading: this.startHeading },
       { halfLength: FIELD_LENGTH / 2, halfWidth: FIELD_WIDTH / 2 },
-      {shooting: {aimTarget: (x, z) => {
-        if (x < Hub.HUB_X) {
-          return {x: Hub.HUB_X, z: 0};
-        }
-        if (z < 0) {
-          return {x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: -FIELD_WIDTH / 2};
-        }
-        return {x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: FIELD_WIDTH / 2};
-      }}}
+      {
+        shooting: {
+          aimTarget: (x, z) => {
+            return this.aimTarget(x, z);
+          },
+        },
+      },
     );
     this.editor.onChange = () => this.refreshPanel();
     game.stage.add(this.editor.group);
@@ -146,23 +149,40 @@ export class Level8 implements Level {
     this.lessonPanel = new LessonPanel(this.game.ui.getLevelContainer());
     this.lessonPanel.setTitle("Autonomous Driving");
     this.lessonPanel.setBody(
-        "Now the robot can collect balls from the field, but only from the " +
+      "Now the robot can collect balls from the field, but only from the " +
         "front. Set up waypoints with the right heading to collect from the " +
         "middle, and then come back with them. Select a waypoint and mark it " +
         "for shooting to score points.<br><br>" +
         `<b>Challenge:</b> Score at least ${this.levelRequirement} points with a single routine.`,
     );
-    this.lessonPanel.setReadout('');
+    this.lessonPanel.setReadout("");
     this.lessonPanel.setResult("", false);
     this.refreshPanel();
-    this.game.ui.setAction('NEXT LEVEL', false);
+    this.game.ui.setAction("NEXT LEVEL", false);
   }
 
   // ------------------------------------------------------------------------
   // Mode switching
   // ------------------------------------------------------------------------
 
+  private aimTarget(x: number, z: number): { x: number; z: number } {
+    if (x < Hub.HUB_X) {
+      return { x: Hub.HUB_X, z: 0 };
+    }
+    if (z < 0) {
+      return { x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: -FIELD_WIDTH / 2 };
+    }
+    return { x: (-FIELD_LENGTH / 2 + Hub.HUB_X) / 2, z: FIELD_WIDTH / 2 };
+  }
+
   private addBall(ball: Ball) {
+    this.balls.add(ball);
+    this.ballsByCollider.set(ball.getCollider()!.handle, ball);
+    this.game.stage.add(ball.mesh);
+  }
+
+  private releaseBall(ball: Ball) {
+    ball.releaseFromHub({x: Hub.HUB_X, y: 0, z: 0}, this.game.world);
     this.balls.add(ball);
     this.ballsByCollider.set(ball.getCollider()!.handle, ball);
     this.game.stage.add(ball.mesh);
@@ -182,10 +202,10 @@ export class Level8 implements Level {
 
     for (let ix = 0; ix < 12; ix++) {
       for (let iz = 0; iz < 30; iz++) {
-        const ball =  new Ball('field');
+        const ball = new Ball("field");
         const x = (ix - (12 - 1) / 2) * Ball.RADIUS * 2;
         const z = (iz - (30 - 1) / 2) * Ball.RADIUS * 2;
-        ball.place({x, y: Ball.RADIUS, z});
+        ball.place({ x, y: Ball.RADIUS, z });
         ball.addColliders(this.game.world);
         this.addBall(ball);
       }
@@ -199,27 +219,30 @@ export class Level8 implements Level {
     }
 
     this.resetRobot();
-    this.totalShots = 0;
-    this.successfulShots = 0;
     this.lastScored = 0;
-    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
     this.follower = new PathFollower(samples, stops);
     this.follower.onFire = (pose, stop) => {
       if (this.robot.getBallCount() <= 0) {
         return true;
       }
 
-      const distance = this.robot.getDistanceToHub(this.hub.group.position);
+      const pos = this.robot.group.position;
+      let distance = this.robot.getDistanceToHub(this.hub.group.position);
+      if (pos.x > Hub.HUB_X) {
+        const target = this.aimTarget(pos.x, pos.z);
+        distance = this.robot.getDistanceToHub(new THREE.Vector3(target.x, 0, target.z));
+      } else {
+        this.totalShots++;
+        this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
+      }
       const targetRpm = this.game.getRpmTable().getInterpolatedValue(distance);
       const start = this.robot.getMuzzlePosition();
       const speed = this.robot.rpmToLaunchSpeed(targetRpm.value);
       const fwd = this.robot.getForward();
-      const angle = THREE.MathUtils.degToRad(this.robot.getShotAngle(this.hub));
+      const angle = THREE.MathUtils.degToRad(this.robot.getShotAngleForDistance(distance));
       const horizontal = Math.cos(angle) * speed;
 
-      this.totalShots++;
-      this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
-      const ball = new Ball('field');
+      const ball = new Ball("field");
       ball.place(start);
       this.game.stage.add(ball.mesh);
       ball.launch(this.game.world, start, {
@@ -230,7 +253,7 @@ export class Level8 implements Level {
       this.addBall(ball);
       this.robot.removeBall();
       return false;
-    }
+    };
     this.mode = "run";
     this.editor.setEnabled(false);
     this.game.setCamera(this.driverStationCamera);
@@ -265,6 +288,10 @@ export class Level8 implements Level {
 
     this.robot.clearBalls();
     this.resetField();
+    this.successfulShots = 0;
+    this.totalShots = 0;
+    this.lastScored = 0;
+    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
 
     const y = body.translation().y;
     body.setTranslation({ x: START_X, y, z: START_Z }, true);
@@ -279,7 +306,11 @@ export class Level8 implements Level {
 
     const pos = this.robot.getPhysicsBody()!.translation();
     const q = this.robot.getPhysicsBody()!.rotation();
-    this.robot.group.position.set(pos.x, pos.y - SimpleRobot.ROBOT_HEIGHT / 2, pos.z);
+    this.robot.group.position.set(
+      pos.x,
+      pos.y - SimpleRobot.ROBOT_HEIGHT / 2,
+      pos.z,
+    );
     this.robot.group.quaternion.set(q.x, q.y, q.z, q.w);
   }
 
@@ -323,12 +354,15 @@ export class Level8 implements Level {
     this.game.stepPhysics(dt);
 
     const collected: Ball[] = [];
-    this.game.world.intersectionPairsWith(this.robot.getIntakeCollider(), (otherCollider) => {
-      const ball = this.ballsByCollider.get(otherCollider.handle);
-      if (ball) {
-        collected.push(ball);
-      }
-    });
+    this.game.world.intersectionPairsWith(
+      this.robot.getIntakeCollider(),
+      (otherCollider) => {
+        const ball = this.ballsByCollider.get(otherCollider.handle);
+        if (ball) {
+          collected.push(ball);
+        }
+      },
+    );
 
     for (const ball of collected) {
       if (this.robot.getBallCount() < this.robot.getMaxCapacity()) {
@@ -353,8 +387,18 @@ export class Level8 implements Level {
       this.successfulShots++;
       this.lastScored = performance.now();
       this.removeBall(ball);
+      this.pendingReleases.push({ ball, timer: 0.5 });
     }
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
+
+    for (let i = this.pendingReleases.length - 1; i >= 0; i--) {
+      const pendingRelease = this.pendingReleases[i]!;
+      pendingRelease.timer -= dt;
+      if (pendingRelease.timer <= 0) {
+        this.releaseBall(pendingRelease.ball);
+        this.pendingReleases.splice(i, 1);
+      }
+    }
 
     for (const ball of this.balls) {
       ball.syncMesh();
@@ -362,12 +406,19 @@ export class Level8 implements Level {
 
     const pos = this.robot.getPhysicsBody()!.translation();
     const q = this.robot.getPhysicsBody()!.rotation();
-    this.robot.group.position.set(pos.x, pos.y - SimpleRobot.ROBOT_HEIGHT / 2, pos.z);
+    this.robot.group.position.set(
+      pos.x,
+      pos.y - SimpleRobot.ROBOT_HEIGHT / 2,
+      pos.z,
+    );
     this.robot.group.quaternion.set(q.x, q.y, q.z, q.w);
 
     if (this.mode === "run" && this.follower) {
-      if (this.follower.finished && performance.now() - this.lastScored > 1000) {
-        this.robot.getPhysicsBody()?.setAngvel({x: 0, y: 0, z: 0}, true);
+      if (
+        this.follower.finished &&
+        performance.now() - this.lastScored > 5000
+      ) {
+        this.robot.getPhysicsBody()?.setAngvel({ x: 0, y: 0, z: 0 }, true);
         if (this.successfulShots >= this.levelRequirement) {
           this.completed = true;
           this.mode = "design";
@@ -398,20 +449,20 @@ export class Level8 implements Level {
 
   private refreshPanel() {
     if (this.completed) {
-      this.lessonPanel.setResult(
-        "Challenge complete!",
-      );
-      this.lessonPanel.setButtons([{
-        label: "This is fun, do it again",
-        onClick: () => {
-          this.completed = false;
-          this.successfulShots = 0;
-          this.totalShots = 0;
-          this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
-          this.stopRun();
-        }
-      }]);
-      this.game.ui.setAction('NEXT LEVEL', true);
+      this.lessonPanel.setResult("Challenge complete!");
+      this.lessonPanel.setButtons([
+        {
+          label: "This is fun, do it again",
+          onClick: () => {
+            this.completed = false;
+            this.successfulShots = 0;
+            this.totalShots = 0;
+            this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
+            this.stopRun();
+          },
+        },
+      ]);
+      this.game.ui.setAction("NEXT LEVEL", true);
       return;
     }
 
@@ -429,7 +480,7 @@ export class Level8 implements Level {
     this.lessonPanel.setResult("", false);
     this.lessonPanel.setButtons([
       {
-        label: this.editor.selectedShoots ? 'Shooting: on': 'Shoot here',
+        label: this.editor.selectedShoots ? "Shooting: on" : "Shoot here",
         onClick: () => {
           this.editor.toggleSelectedShoot();
           this.refreshPanel();
