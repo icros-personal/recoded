@@ -9,6 +9,7 @@ export class SettingsModal {
   private dialog: HTMLDivElement;
   private table: Table;
   private tableUnsubscribe: () => void;
+  private kPInput: HTMLInputElement;
   private downOnBackdrop = false;
 
   constructor(private readonly game: Game) {
@@ -34,10 +35,24 @@ export class SettingsModal {
 
     this.dialog.innerHTML = `
         <h2>Settings</h2>
+        <label>Kp (for aiming):
+        <input type="number" step="0.05" id="kp">
+        </label>
     `;
     this.table = new Table(["Distance", "RPM"], this.game.getRpmTable());
     this.tableUnsubscribe = this.table.onChange(() => this.game.saveRpmTable());
     this.dialog.appendChild(this.table.element);
+
+    this.kPInput = this.dialog.querySelector('#kp') as HTMLInputElement;
+    this.kPInput.value = String(this.game.getKp());
+    this.kPInput.addEventListener('change', () => {
+      const value = this.kPInput.valueAsNumber;
+      if (Number.isNaN(value)) {
+        return false;
+      }
+      this.game.setKp(value);
+      return true;
+    });
 
     const clearButton = document.createElement('button');
     clearButton.className = 'dialog-button';
@@ -73,6 +88,11 @@ export class SettingsModal {
         this.table.element.style.display = 'none';
     } else {
         this.table.element.style.display = 'block';
+    }
+    if (level.info.index < 9) {
+        this.kPInput.style.display = 'none';
+    } else {
+        this.kPInput.style.display = 'block';
     }
   }
 

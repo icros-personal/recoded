@@ -330,8 +330,7 @@ export class Level9 implements Level {
       const targetHeading = Math.atan2(dx, dz);
       const currentHeading = this.robot.group.rotation.y + Math.PI / 2;
       const angleError = wrapAngle(targetHeading - currentHeading);
-      const Kp = 1.2; // FIXME: Move this to game storage
-      let turnCmd = clamp(Kp * angleError, -1, 1);
+      let turnCmd = clamp(this.game.getKp() * angleError, -1, 1);
       turnCmd = this.stepTurnModel(turnCmd, dt);
       turnInput = turnCmd;
       const alignmentTolerance = 0.1;

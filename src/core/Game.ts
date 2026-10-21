@@ -39,6 +39,7 @@ export class Game {
   readonly renderer = new THREE.WebGLRenderer({ antialias: true });
   private storage: Record<string, unknown> = this.loadStorage();
   private rpmTable?: InterpolationTable;
+  private kp?: number;
   private level: Level | null = null;
   private last = performance.now();
 
@@ -98,6 +99,23 @@ export class Game {
 
   saveRpmTable(): void {
     this.setStorage('rpmTable', this.getRpmTable().toStorage());
+  }
+
+  getKp() {
+    if (this.kp === undefined) {
+      const storageValue = this.getStorage('kp');
+      if (typeof storageValue === 'number') {
+        this.kp = storageValue;
+      } else {
+        this.setKp(0.6);
+      }
+    }
+    return this.kp as number;
+  }
+
+  setKp(kp: number) {
+    this.kp = kp;
+    this.setStorage('kp', this.kp);
   }
 
   /** Replace the camera. Levels can call this from setup() or later (e.g. a cutscene). */

@@ -343,6 +343,7 @@ export class Level6 implements Level {
 
     if (ok && !this.passed) {
       this.passed = true;
+      this.game.setKp(this.kp);
       this.game.ui.setAction("NEXT LEVEL");
       this.renderStage();
     }
