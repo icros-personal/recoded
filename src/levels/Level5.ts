@@ -50,7 +50,6 @@ export class Level5 implements Level {
   private distanceLine!: DistanceLine;
   private scoreOverlay!: ScoreOverlay;
   private touchOverlay: TouchOverlay | null = null;
-  private table!: Table;
 
   private shooter!: DynamicShooter;
   private ballsRemaining = MAX_BALLS;

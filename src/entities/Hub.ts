@@ -3,6 +3,7 @@ import RAPIER from "@dimforge/rapier3d-compat";
 import { Ball } from "./Ball";
 import { HubFunnel } from "./HubFunnel";
 import { HubTop } from "./HubTop";
+import { CollisionGroups } from "./CollisionGroups";
 
 /**
  * REBUILT-inspired cartoon Hub. The real Hub is a 47" x 47" box with a
@@ -24,6 +25,7 @@ export class Hub {
   private readonly top: HubTop;
   private readonly funnel: HubFunnel;
 
+  private scoreCollider?: RAPIER.Collider;
 
   constructor(x = 0, z = 0) {
     const { WIDTH, HEIGHT, DEPTH, OPENING_RADIUS } = Hub;
@@ -37,16 +39,6 @@ export class Hub {
     body.receiveShadow = true;
     this.group.add(body);
 
-    // Cover the top visually, then put a dark hexagonal hole on top of it. The
-    // dark face is deliberately slightly above the red top so it reads clearly
-    // even with the fixed camera.
-    //const top = new THREE.Mesh(
-      //new THREE.BoxGeometry(WIDTH + 0.04, 0.08, DEPTH + 0.04),
-      //new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.65 }),
-    //);
-    //top.position.y = HEIGHT + 0.04;
-    //top.castShadow = true;
-    //this.group.add(top);
     this.top = new HubTop({
       halfSize: (WIDTH + 0.04) / 2,
       holeRadius: OPENING_RADIUS,
@@ -76,7 +68,7 @@ export class Hub {
   }
 
   /** Add the four walls as static colliders. Call after positioning the hub. */
-  addColliders(world: RAPIER.World) {
+  addColliders(world: RAPIER.World, scoreCollider: boolean = false) {
     const { x: hx, z: hz } = this.group.position;
     const w = Hub.WIDTH / 2;
     const d = Hub.DEPTH / 2;
@@ -104,6 +96,20 @@ export class Hub {
 
     this.top.addColliders(world, this.group.position);
     this.funnel.addColliders(world, this.group.position);
+
+    if (scoreCollider) {
+      const desc = RAPIER.ColliderDesc
+        .cuboid(w / 2, h, d / 2)
+        .setSensor(true)
+        .setTranslation(hx, h, hz)
+        .setDensity(0)
+        .setCollisionGroups((CollisionGroups.ROBOT_INTAKE << 16) | CollisionGroups.BALL_ACTIVE);
+      this.scoreCollider = world.createCollider(desc);
+    }
+  }
+
+  getScoreCollider(): RAPIER.Collider | undefined {
+    return this.scoreCollider;
   }
 
   /**

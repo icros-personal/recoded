@@ -58,8 +58,13 @@ export class LessonPanel {
   }
 
   setReadout(text: string, highlight: boolean = false) {
-    this.readoutEl.textContent = text;
-    this.readoutEl.style.color = highlight ? "#7dffc0" : "";
+    if (!text) {
+      this.readoutEl.style.display = 'none';
+    } else {
+      this.readoutEl.style.display = 'block';
+      this.readoutEl.textContent = text;
+      this.readoutEl.style.color = highlight ? "#7dffc0" : "";
+    }
   }
 
   setResult(text: string, visible: boolean = true) {

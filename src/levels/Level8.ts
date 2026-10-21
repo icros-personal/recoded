@@ -11,9 +11,9 @@ import { LessonPanel } from "../ui/LessonPanel";
 import { FloorObstacles } from "../entities/FloorObstacles";
 import { PathEditor } from "../entities/PathEditor";
 import { PathFollower, wrapAngle } from "../core/PathFollower";
-import { inAllianceZone, inNeutralZone } from "../core/zoneChecks";
 import { Robot } from "../entities/Robot";
 import { Ball } from "../entities/Ball";
+import { ScoreOverlay } from "../ui/ScoreOverlay";
 
 // Robot start (x, z) -- also the first point of every path.
 const START_X = -FIELD_LENGTH / 2 + 1;
@@ -26,15 +26,17 @@ const MAX_ANG_ACCEL = 20; // rad/s^2
 type Mode = "design" | "run";
 
 export class Level8 implements Level {
+  private levelRequirement = 50;
+
   readonly info: LevelInfo = {
     index: 8,
-    subtitle: "Full auto!",
+    subtitle: "Putting It All Together",
     instructions:
-      "Set a path that the robot can follow that crosses into the middle and then comes back.",
+      `Plan an auto that scores at least ${this.levelRequirement} points.`,
     targetLabel: "",
     modal: {
-      title: "Autonomous Driving",
-      body: "During a match, a driver reacts to what's happening on the field. But what if the robot could handle some of that driving itself?  FRC teams can program autonomous routines before a match begins. They plan a route through a series of waypoints, then use a path-following algorithm to steer the robot along it.",
+      title: "Full Auto Mode",
+      body: "Real FRC auto routines don't just drive, they need to score points as well. Teams coordinate precise navigation with well-timed mechanism control. Now it's time to build a complete routine: pathfinding, intaking, positioning and shooting. How many can you score?",
     },
   };
 
@@ -61,11 +63,12 @@ export class Level8 implements Level {
   private hub!: Hub;
   private lessonPanel!: LessonPanel;
 
+  private scoreOverlay!: ScoreOverlay;
   private editor!: PathEditor;
   private follower: PathFollower | null = null;
   private startHeading = 0;
+  private lastScored = 0;
 
-  private visitedMiddle = false;
   private completed = false;
 
   private balls = new Set<Ball>();
@@ -76,6 +79,9 @@ export class Level8 implements Level {
   private cmdVz = 0;
   private cmdOmega = 0;
 
+  private successfulShots = 0;
+  private totalShots = 0;
+
   setup(game: Game) {
     this.game = game;
 
@@ -85,12 +91,17 @@ export class Level8 implements Level {
       [5.0, 4800],
     ])
 
+    this.scoreOverlay = new ScoreOverlay(
+      this.game.renderer.domElement.parentElement!,
+    );
+    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
+
     // Floor, hubs, obstacles
     const floor = new Floor(true);
     floor.addColliders(game.world);
 
     this.hub = new Hub(Hub.HUB_X);
-    this.hub.addColliders(game.world);
+    this.hub.addColliders(game.world, true);
     const blueHub = new Hub(-Hub.HUB_X);
     blueHub.addColliders(game.world);
 
@@ -135,12 +146,13 @@ export class Level8 implements Level {
     this.lessonPanel = new LessonPanel(this.game.ui.getLevelContainer());
     this.lessonPanel.setTitle("Autonomous Driving");
     this.lessonPanel.setBody(
-      "Drivers usually control the robot during a match, but FRC teams " +
-        "can also program autonomous routines. Plan a route through a series " +
-        "of waypoints, then let the robot attempt to follow it.<br><br>" +
-        "<b>Challenge:</b> Travel from your starting area into the middle " +
-        "of the field, then return to your starting area and aim at the hub.",
+        "Now the robot can collect balls from the field, but only from the " +
+        "front. Set up waypoints with the right heading to collect from the " +
+        "middle, and then come back with them. Select a waypoint and mark it " +
+        "for shooting to score points.<br><br>" +
+        `<b>Challenge:</b> Score at least ${this.levelRequirement} points with a single routine.`,
     );
+    this.lessonPanel.setReadout('');
     this.lessonPanel.setResult("", false);
     this.refreshPanel();
     this.game.ui.setAction('NEXT LEVEL', false);
@@ -187,8 +199,10 @@ export class Level8 implements Level {
     }
 
     this.resetRobot();
-    this.visitedMiddle = false;
-    this.completed = false;
+    this.totalShots = 0;
+    this.successfulShots = 0;
+    this.lastScored = 0;
+    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
     this.follower = new PathFollower(samples, stops);
     this.follower.onFire = (pose, stop) => {
       if (this.robot.getBallCount() <= 0) {
@@ -203,6 +217,8 @@ export class Level8 implements Level {
       const angle = THREE.MathUtils.degToRad(this.robot.getShotAngle(this.hub));
       const horizontal = Math.cos(angle) * speed;
 
+      this.totalShots++;
+      this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
       const ball = new Ball('field');
       ball.place(start);
       this.game.stage.add(ball.mesh);
@@ -321,23 +337,38 @@ export class Level8 implements Level {
       }
     }
 
+    collected.length = 0;
+
+    const hubCollider = this.hub.getScoreCollider();
+    if (hubCollider) {
+      this.game.world.intersectionPairsWith(hubCollider, (ballCollider) => {
+        const ball = this.ballsByCollider.get(ballCollider.handle);
+        if (ball) {
+          collected.push(ball);
+        }
+      });
+    }
+
+    for (const ball of collected) {
+      this.successfulShots++;
+      this.lastScored = performance.now();
+      this.removeBall(ball);
+    }
+    this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
+
     for (const ball of this.balls) {
       ball.syncMesh();
     }
+
     const pos = this.robot.getPhysicsBody()!.translation();
     const q = this.robot.getPhysicsBody()!.rotation();
     this.robot.group.position.set(pos.x, pos.y - SimpleRobot.ROBOT_HEIGHT / 2, pos.z);
     this.robot.group.quaternion.set(q.x, q.y, q.z, q.w);
 
     if (this.mode === "run" && this.follower) {
-      const pos = this.robot.group.position;
-      if (inNeutralZone(pos.x, pos.z)) {
-        this.visitedMiddle = true;
-      }
-
-      if (this.follower.finished) {
+      if (this.follower.finished && performance.now() - this.lastScored > 1000) {
         this.robot.getPhysicsBody()?.setAngvel({x: 0, y: 0, z: 0}, true);
-        if (this.visitedMiddle && inAllianceZone(pos.x, pos.z) && this.isPointingAtHub()) {
+        if (this.successfulShots >= this.levelRequirement) {
           this.completed = true;
           this.mode = "design";
           this.follower = null;
@@ -348,11 +379,6 @@ export class Level8 implements Level {
           this.follower = null;
           this.mode = "design";
           this.game.setCamera(this.topDownCamera);
-          this.lessonPanel.setReadout(
-            this.visitedMiddle
-              ? "The robot reached the middle, but didn't finish in the starting area pointing at the hub. Try another route."
-              : "The robot finished without reaching the middle zone. Try another route.",
-          );
           this.lessonPanel.setResult("", false);
           this.lessonPanel.setButtons([
             {
@@ -370,32 +396,18 @@ export class Level8 implements Level {
     }
   }
 
-  private isPointingAtHub(): boolean {
-    const robotPos = this.robot.group.position;
-    const hubPos = this.hub.group.position;
-
-    // 1. Vector from robot to hub
-    const dx = hubPos.x - robotPos.x;
-    const dz = hubPos.z - robotPos.z;
-
-    // 2. Target angle, current heading, and the (wrapped) error between them
-    const targetHeading = Math.atan2(dx, dz);
-    const currentHeading = this.robot.group.rotation.y + Math.PI / 2;
-    const angleError = wrapAngle(targetHeading - currentHeading);
-    return Math.abs(angleError) < Math.PI / 9; // within 20 degrees?
-  }
-
   private refreshPanel() {
     if (this.completed) {
-      this.lessonPanel.setReadout("Autonomous route completed!", true);
       this.lessonPanel.setResult(
-        "Challenge complete! Your robot travelled through the middle of the field and returned to its starting area pointed at the hub.",
+        "Challenge complete!",
       );
       this.lessonPanel.setButtons([{
         label: "This is fun, do it again",
         onClick: () => {
           this.completed = false;
-          this.visitedMiddle = false;
+          this.successfulShots = 0;
+          this.totalShots = 0;
+          this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
           this.stopRun();
         }
       }]);
@@ -404,11 +416,6 @@ export class Level8 implements Level {
     }
 
     if (this.mode === "run") {
-      this.lessonPanel.setReadout(
-        this.visitedMiddle
-          ? "Middle zone reached! Return to the starting area."
-          : "Following path... Travel through the middle zone.",
-      );
       this.lessonPanel.setResult("", false);
       this.lessonPanel.setButtons([
         {
@@ -419,9 +426,6 @@ export class Level8 implements Level {
       return;
     }
 
-    this.lessonPanel.setReadout(
-      "Add waypoints to enter the middle zone, return to the starting area and point at the hub.",
-    );
     this.lessonPanel.setResult("", false);
     this.lessonPanel.setButtons([
       {
