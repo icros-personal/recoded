@@ -14,7 +14,7 @@ import { Robot } from "../entities/Robot";
 import { Ball } from "../entities/Ball";
 import { ScoreOverlay } from "../ui/ScoreOverlay";
 import { KeyboardListener } from "../core/KeyboardListener";
-import type { TouchOverlay } from "../ui/TouchOverlay";
+import { TouchOverlay } from "../ui/TouchOverlay";
 
 // Robot start (x, z) -- also the first point of every path.
 const START_X = -FIELD_LENGTH / 2 + 1;
@@ -118,6 +118,24 @@ export class Level9 implements Level {
       this.game.renderer.domElement.parentElement!,
     );
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
+
+    if (
+      window.PointerEvent &&
+      "maxTouchPoints" in navigator &&
+      navigator.maxTouchPoints > 0
+    ) {
+      this.touchOverlay = new TouchOverlay(
+        this.game.renderer.domElement.parentElement!,
+        {
+          handleIntake: (isDown) => {
+            if (isDown) {
+              this.changeCamera();
+            }
+          },
+          handleShoot: () => {},
+        },
+      );
+    }
 
     // Floor, hubs, obstacles
     const floor = new Floor(true);

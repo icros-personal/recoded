@@ -108,7 +108,7 @@ export class TouchOverlay {
     rowTop.style.cssText = `display: flex; justify-content: center;`;
 
     if (options.handleIntake) {
-      const intakeBtn = this.createTouchButton("📥 Intake", (isDown) => {
+      const intakeBtn = this.createTouchButton("🔄 Camera", (isDown) => {
         this.touchInput.intake = isDown;
         options.handleIntake?.(isDown);
       });
@@ -163,6 +163,9 @@ export class TouchOverlay {
       cursor: pointer;
       touch-action: manipulation;
       box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
     `;
 
     const trigger = (isDown: boolean, e: Event) => {
