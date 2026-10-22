@@ -3,7 +3,7 @@ import type { Level } from "../levels/Level";
 
 import { Table } from "./Table";
 
-import './Achievements.css';
+import "./Achievements.css";
 import "./SettingsModal.css";
 
 export class SettingsModal {
@@ -78,11 +78,14 @@ export class SettingsModal {
     </div>
   </div>
     `;
-    this.distanceDriven = this.achievements.querySelector<HTMLSpanElement>('#distance-driven')!;
-    this.pathFollowed = this.achievements.querySelector<HTMLSpanElement>('#path-followed')!;
-    this.rotations = this.achievements.querySelector<HTMLSpanElement>('#rotations')!;
-    this.shots = this.achievements.querySelector<HTMLSpanElement>('#shots')!;
-    this.fuel = this.achievements.querySelector<HTMLSpanElement>('#fuel')!;
+    this.distanceDriven =
+      this.achievements.querySelector<HTMLSpanElement>("#distance-driven")!;
+    this.pathFollowed =
+      this.achievements.querySelector<HTMLSpanElement>("#path-followed")!;
+    this.rotations =
+      this.achievements.querySelector<HTMLSpanElement>("#rotations")!;
+    this.shots = this.achievements.querySelector<HTMLSpanElement>("#shots")!;
+    this.fuel = this.achievements.querySelector<HTMLSpanElement>("#fuel")!;
 
     this.dialog = document.createElement("div");
     this.dialog.className = "settings-dialog";
@@ -117,11 +120,32 @@ export class SettingsModal {
     clearButton.className = "dialog-button";
     clearButton.textContent = "Reset all data";
     clearButton.style.background = "red";
+
+    let isConfirming = false;
+    let resetTimeout: number = 0;
+
     clearButton.addEventListener("click", () => {
-      this.game.clearStorage();
-      this.game.getRpmTable().clear();
-      this.game.reload();
+      if (!isConfirming) {
+        // First click: arm confirmation and change text/color
+        isConfirming = true;
+        clearButton.textContent = "Really DELETE your RPM settings above?";
+        clearButton.style.background = "darkred";
+
+        // Allow them 3 seconds to change their mind; otherwise, reset state
+        resetTimeout = setTimeout(() => {
+          isConfirming = false;
+          clearButton.textContent = "Reset all data";
+          clearButton.style.background = "red";
+        }, 3000);
+      } else {
+        // Second click: confirmed! Clear the timeout and execute reset
+        clearTimeout(resetTimeout);
+        this.game.clearStorage();
+        this.game.getRpmTable().clear();
+        this.game.reload();
+      }
     });
+
     this.dialog.appendChild(clearButton);
 
     const closeButton = document.createElement("button");
@@ -163,11 +187,14 @@ export class SettingsModal {
     if (achievements) {
       this.dialog.style.display = "none";
       this.achievements.style.display = "block";
-      this.distanceDriven.innerHTML = this.game.achievements.formatDistance('distance-driven');
-      this.pathFollowed.innerHTML = this.game.achievements.formatDistance('path-followed');
-      this.rotations.innerHTML = this.game.achievements.formatRotations('rotations');
-      this.shots.innerHTML = this.game.achievements.formatNumber('shots');
-      this.fuel.innerHTML = this.game.achievements.formatNumber('fuel');
+      this.distanceDriven.innerHTML =
+        this.game.achievements.formatDistance("distance-driven");
+      this.pathFollowed.innerHTML =
+        this.game.achievements.formatDistance("path-followed");
+      this.rotations.innerHTML =
+        this.game.achievements.formatRotations("rotations");
+      this.shots.innerHTML = this.game.achievements.formatNumber("shots");
+      this.fuel.innerHTML = this.game.achievements.formatNumber("fuel");
     } else {
       this.dialog.style.display = "block";
       this.achievements.style.display = "none";

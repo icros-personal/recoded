@@ -6,10 +6,7 @@ import { Hub } from "../entities/Hub";
 import { SimpleRobot } from "../entities/SimpleRobot";
 import type { Level } from "./Level";
 import type { CameraSpec } from "../core/Camera";
-import { levels } from ".";
 import { FloorObstacles } from "../entities/FloorObstacles";
-import { PathEditor } from "../entities/PathEditor";
-import { PathFollower } from "../core/PathFollower";
 import { Robot } from "../entities/Robot";
 import { Ball } from "../entities/Ball";
 import { ScoreOverlay } from "../ui/ScoreOverlay";
@@ -48,7 +45,7 @@ export class Level9 implements Level {
     targetLabel: "",
     modal: {
       title: "Just for Fun",
-      body: "Congratulations! You finished all the levels so far.",
+      body: "Congratulations! You finished all the levels so far. This level puts everything together - driving, intake, shooting with your configured table, and auto-aiming. If you want to modify the values, look in Settings.",
     },
   };
 
@@ -88,7 +85,6 @@ export class Level9 implements Level {
 
   private scoreOverlay!: ScoreOverlay;
   private startHeading = 0;
-  private lastScored = 0;
 
   private balls = new Set<Ball>();
   private ballsByCollider: Map<number, Ball> = new Map<number, Ball>();
@@ -109,6 +105,14 @@ export class Level9 implements Level {
   private touchOverlay: TouchOverlay | null = null;
 
   setup(game: Game) {
+    this.cameraIndex = 0;
+    this.appliedTurn = 0;
+    this.cmdQueue = [];
+    this.time = 0;
+    this.successfulShots = 0;
+    this.totalShots = 0;
+    this.lastShotTime = 0;
+
     this.game = game;
 
     this.game.initializeRpmTableIfEmpty([
@@ -291,7 +295,6 @@ export class Level9 implements Level {
     this.resetField();
     this.successfulShots = 0;
     this.totalShots = 0;
-    this.lastScored = 0;
     this.scoreOverlay.setScore(this.successfulShots, this.totalShots);
 
     const y = body.translation().y;
@@ -439,7 +442,6 @@ export class Level9 implements Level {
     for (const ball of collected) {
       this.successfulShots++;
       this.game.achievements.add('shots', 1);
-      this.lastScored = performance.now();
       this.removeBall(ball);
       this.pendingReleases.push({ ball, timer: 0.5 });
     }
@@ -472,5 +474,6 @@ export class Level9 implements Level {
     for (const b of [...this.balls]) {
       this.removeBall(b);
     }
+    this.scoreOverlay.dispose();
   }
 }
