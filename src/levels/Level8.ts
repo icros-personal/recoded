@@ -527,6 +527,7 @@ export class Level8 implements Level {
   dispose() {
     this.editor.dispose();
     this.lessonPanel.dispose();
+    this.scoreOverlay.dispose();
     for (const b of [...this.balls]) {
       this.removeBall(b);
     }

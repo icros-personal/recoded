@@ -59,16 +59,26 @@ export class Level3 extends SimpleBaseLevel {
     this.currentDistance = this.robot.getDistanceToHub(this.hub.group.position);
 
     const suggestedRpm = this.game.getRpmTable().getClosestValue(dist);
-    const input = this.game.ui
-      .getControlsContainer()
-      .querySelector<HTMLInputElement>("#rpm");
-    if (input && suggestedRpm) {
-      input.value = String(suggestedRpm);
+    if (suggestedRpm) {
+      this.setInputValue(suggestedRpm);
     }
 
     this.shooter = new FixedBurstShooter(this.game, this.robot, this.hub, { maxAge: 3.5});
     this.rpmGraph = new RpmGraph(800, 300, MAX_RPM);
     this.game.ui.getControlsContainer().appendChild(this.rpmGraph.canvas);
+  }
+
+  private setInputValue(value: number) {
+    const input = this.game.ui
+      .getControlsContainer()
+      .querySelector<HTMLInputElement>("#rpm");
+    if (input && value) {
+      input.value = String(value);
+      const range = input?.previousElementSibling as HTMLInputElement;
+      if (range) {
+        range.value = String(value);
+      }
+    }
   }
 
   protected override getBaseDistances() {
@@ -98,12 +108,7 @@ export class Level3 extends SimpleBaseLevel {
 
     const suggestedRpm = this.game.getRpmTable().getClosestValue(dist);
     if (suggestedRpm) {
-      const input = this.game.ui
-        .getControlsContainer()
-        .querySelector<HTMLInputElement>("#rpm");
-      if (input) {
-        input.value = String(suggestedRpm);
-      }
+      this.setInputValue(suggestedRpm);
     }
 
     this.updateDistanceLine();

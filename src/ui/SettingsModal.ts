@@ -97,7 +97,7 @@ export class SettingsModal {
 
     this.dialog.innerHTML = `
         <h2>Settings</h2>
-        <label>Kp (for aiming):
+        <label id="kp-container">Kp (for aiming):
         <input type="number" step="0.05" id="kp">
         </label>
     `;
@@ -176,9 +176,9 @@ export class SettingsModal {
       this.table.element.style.display = "block";
     }
     if (level.info.index < 9) {
-      this.kPInput.style.display = "none";
+      this.kPInput.parentElement!.style.display = "none";
     } else {
-      this.kPInput.style.display = "block";
+      this.kPInput.parentElement!.style.display = "block";
     }
   }
 

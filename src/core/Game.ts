@@ -219,6 +219,7 @@ export class Game {
 function disposeObject(root: THREE.Object3D) {
   root.traverse((obj) => {
     if (!(obj instanceof THREE.Mesh)) return;
+    if (obj.userData.skipDispose) return;
     obj.geometry.dispose();
     const materials = Array.isArray(obj.material)
       ? obj.material

@@ -25,6 +25,7 @@ export class Ball {
       Ball.MATERIAL,
     );
     this.mesh.castShadow = true;
+    this.mesh.userData.skipDispose = true;
   }
 
   addColliders(world: RAPIER.World) {
